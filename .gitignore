@@ -17,6 +17,12 @@ npm-debug.*
 *.mobileprovision
 *.orig.*
 web-build/
+.metro-health-check*
+expo-env.d.ts
+*.tsbuildinfo
+.kotlin/
+/ios
+/android
 
 # Environment
 .env
