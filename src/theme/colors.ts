@@ -19,6 +19,10 @@ export const colors = {
   rays: "#F5C24B",
   muted: "#6B7280",
   white: "#FFFFFF",
+  plum: "#8B5CF6",
+  mint: "#22A559",
+  coral: "#E5484D",
+  track: "#EDE7DE",
 } as const;
 
 export type ColorToken = keyof typeof colors;
