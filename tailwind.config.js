@@ -1,5 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
+  darkMode: "class",
   content: ["./src/app/**/*.{js,jsx,ts,tsx}", "./src/**/*.{js,jsx,ts,tsx}"],
   presets: [require("nativewind/preset")],
   theme: {
@@ -16,6 +17,12 @@ module.exports = {
         },
         rays: "#F5C24B",
         muted: "#6B7280",
+        mutedDark: "#94A3B8",
+        plum: "#8B5CF6",
+        mint: "#22A559",
+        coral: "#E5484D",
+        track: "#EDE7DE",
+        surfaceDark: "#1C2A40",
       },
     },
   },
