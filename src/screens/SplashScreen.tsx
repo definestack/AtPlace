@@ -32,18 +32,18 @@ export function SplashScreen() {
   }, []);
 
   return (
-    <Pressable className="flex-1 bg-cream" onPress={goToHome}>
+    <Pressable className="flex-1 bg-cream dark:bg-navy-deep" onPress={goToHome}>
       <View className="flex-1 items-center justify-center px-8">
         <AppLogo size={120} />
-        <Text className="mt-6 text-4xl font-bold text-navy">AtPlace</Text>
-        <Text className="mt-2 text-center text-base text-muted">
+        <Text className="mt-6 text-4xl font-bold text-navy dark:text-white">AtPlace</Text>
+        <Text className="mt-2 text-center text-base text-muted dark:text-mutedDark">
           Reminders for real life locations
         </Text>
       </View>
 
       <View className="pb-6">
         <SplashIllustration width={width} />
-        <Text className="mt-4 px-8 text-base text-navy">Be where it matters.</Text>
+        <Text className="mt-4 px-8 text-base text-navy dark:text-white">Be where it matters.</Text>
       </View>
     </Pressable>
   );

@@ -21,16 +21,24 @@ export function SegmentedTabs<T extends string>({
   onChange,
 }: SegmentedTabsProps<T>) {
   return (
-    <View className="mx-6 mt-4 flex-row rounded-xl bg-track p-1">
+    <View className="mx-6 mt-4 flex-row rounded-xl bg-track p-1 dark:bg-surfaceDark">
       {options.map((option) => {
         const isActive = option.value === value;
         return (
           <Pressable
             key={option.value}
             onPress={() => onChange(option.value)}
-            className={`flex-1 items-center rounded-lg py-2 ${isActive ? "bg-white" : ""}`}
+            className={`flex-1 items-center rounded-lg py-2 ${
+              isActive ? "bg-white dark:bg-navy" : ""
+            }`}
           >
-            <Text className={isActive ? "font-semibold text-navy" : "text-muted"}>
+            <Text
+              className={
+                isActive
+                  ? "font-semibold text-navy dark:text-white"
+                  : "text-muted dark:text-mutedDark"
+              }
+            >
               {option.label}
             </Text>
           </Pressable>

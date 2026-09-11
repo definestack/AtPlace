@@ -34,25 +34,26 @@ export function HomeScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-cream" edges={["top", "left", "right"]}>
+    <SafeAreaView className="flex-1 bg-cream dark:bg-navy-deep" edges={["top", "left", "right"]}>
       <ScreenHeader title="AtPlace" />
       <SegmentedTabs options={TAB_OPTIONS} value={tab} onChange={setTab} />
 
       {tab === "places" ? (
-        <FlatList
-          data={mockPlaces}
-          keyExtractor={(place) => place.id}
-          renderItem={({ item }) => <PlaceRow place={item} />}
-          contentContainerClassName="pt-2"
-          ListFooterComponent={
-            <Pressable
-              onPress={() => router.push("/add")}
-              className="mx-6 mt-4 items-center rounded-xl bg-navy py-4"
-            >
-              <Text className="text-base font-semibold text-white">+ Add Place</Text>
-            </Pressable>
-          }
-        />
+        <>
+          <FlatList
+            data={mockPlaces}
+            keyExtractor={(place) => place.id}
+            renderItem={({ item }) => <PlaceRow place={item} />}
+            className="flex-1"
+            contentContainerClassName="pt-2"
+          />
+          <Pressable
+            onPress={() => router.push("/add")}
+            className="mx-6 mb-4 items-center rounded-xl bg-navy py-4"
+          >
+            <Text className="text-base font-semibold text-white">+ Add Place</Text>
+          </Pressable>
+        </>
       ) : (
         <FlatList
           data={reminders}
@@ -61,7 +62,9 @@ export function HomeScreen() {
           contentContainerClassName="pt-2"
           ListEmptyComponent={
             <View className="flex-1 items-center justify-center px-8 py-12">
-              <Text className="text-center text-base text-muted">No reminders yet</Text>
+              <Text className="text-center text-base text-muted dark:text-mutedDark">
+                No reminders yet
+              </Text>
             </View>
           }
         />

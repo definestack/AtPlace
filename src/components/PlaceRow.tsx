@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { useColorScheme } from "nativewind";
 import { Pressable, Text, View } from "react-native";
 
 import { ItemIcon } from "@/components/ItemIcon";
@@ -12,6 +13,7 @@ type PlaceRowProps = {
 
 /** A single saved-place row on the Home screen's Places tab (mockup #2). */
 export function PlaceRow({ place, onPress }: PlaceRowProps) {
+  const { colorScheme } = useColorScheme();
   const reminderLabel = `${place.reminderCount} reminder${place.reminderCount === 1 ? "" : "s"}`;
 
   return (
@@ -21,10 +23,14 @@ export function PlaceRow({ place, onPress }: PlaceRowProps) {
     >
       <ItemIcon icon={place.icon} color={place.color} />
       <View className="flex-1">
-        <Text className="text-base font-semibold text-navy">{place.name}</Text>
-        <Text className="text-sm text-muted">{reminderLabel}</Text>
+        <Text className="text-base font-semibold text-navy dark:text-white">{place.name}</Text>
+        <Text className="text-sm text-muted dark:text-mutedDark">{reminderLabel}</Text>
       </View>
-      <Ionicons name="chevron-forward" size={20} color={colors.muted} />
+      <Ionicons
+        name="chevron-forward"
+        size={20}
+        color={colorScheme === "dark" ? colors.mutedDark : colors.muted}
+      />
     </Pressable>
   );
 }
