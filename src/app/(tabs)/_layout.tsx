@@ -5,7 +5,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { colors } from "@/theme/colors";
 
-const TAB_BAR_VERTICAL_PADDING = 8;
+const TAB_BAR_TOP_PADDING = 8;
+const TAB_BAR_BOTTOM_PADDING = 20;
 const TAB_BAR_CONTENT_HEIGHT = 48;
 
 type IconName = keyof typeof Ionicons.glyphMap;
@@ -36,9 +37,11 @@ export default function TabsLayout() {
         tabBarInactiveTintColor: isDark ? colors.mutedDark : colors.muted,
         tabBarStyle: {
           backgroundColor: isDark ? colors.surfaceDark : colors.white,
-          height: TAB_BAR_CONTENT_HEIGHT + TAB_BAR_VERTICAL_PADDING + insets.bottom,
-          paddingTop: TAB_BAR_VERTICAL_PADDING,
-          paddingBottom: TAB_BAR_VERTICAL_PADDING + insets.bottom,
+          borderTopWidth: 1,
+          borderTopColor: isDark ? colors.navy : colors.track,
+          height: TAB_BAR_CONTENT_HEIGHT + TAB_BAR_TOP_PADDING + TAB_BAR_BOTTOM_PADDING + insets.bottom,
+          paddingTop: TAB_BAR_TOP_PADDING,
+          paddingBottom: TAB_BAR_BOTTOM_PADDING + insets.bottom,
         },
         tabBarIcon: ({ color, size }) => (
           <Ionicons name={TAB_ICONS[route.name]} size={size} color={color} />
