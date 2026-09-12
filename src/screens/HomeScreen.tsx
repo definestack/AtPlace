@@ -48,7 +48,7 @@ export function HomeScreen() {
             contentContainerClassName="pt-2"
           />
           <Pressable
-            onPress={() => router.push("/add")}
+            onPress={() => router.push("/add-place")}
             className="mx-6 mb-4 items-center rounded-xl bg-navy py-4"
           >
             <Text className="text-base font-semibold text-white">+ Add Place</Text>
