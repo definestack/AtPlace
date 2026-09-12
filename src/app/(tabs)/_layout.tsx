@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Tabs } from "expo-router";
+import { Tabs, useRouter } from "expo-router";
 import { useColorScheme } from "nativewind";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -27,6 +27,7 @@ export default function TabsLayout() {
   const { colorScheme } = useColorScheme();
   const isDark = colorScheme === "dark";
   const insets = useSafeAreaInsets();
+  const router = useRouter();
 
   return (
     <Tabs
@@ -50,7 +51,19 @@ export default function TabsLayout() {
     >
       <Tabs.Screen name="home" options={{ title: "Home" }} />
       <Tabs.Screen name="map" options={{ title: "Map" }} />
-      <Tabs.Screen name="add" options={{ title: "Add" }} />
+      <Tabs.Screen
+        name="add"
+        options={{ title: "Add" }}
+        listeners={{
+          tabPress: (event) => {
+            // The Add tab is a stub route; opening the real Add Place flow
+            // (issue #5) as a pushed screen matches the mockup (back arrow,
+            // no tab bar) instead of rendering inside the tab bar.
+            event.preventDefault();
+            router.push("/add-place");
+          },
+        }}
+      />
       <Tabs.Screen name="notifications" options={{ title: "Notifications" }} />
       <Tabs.Screen name="settings" options={{ title: "Settings" }} />
     </Tabs>
