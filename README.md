@@ -43,7 +43,7 @@ When you enter the Office geofence, you'll see:
 | Local Storage    | Expo SQLite               | Reminders, locations, settings       |
 | Location APIs    | Expo Location             | Device location access & geofencing  |
 | Notifications    | Expo Notifications        | Local reminder notifications         |
-| Maps             | React Native Maps         | Location selection and display       |
+| Maps             | Expo Maps                 | Location selection and display       |
 | Forms            | React Hook Form + Zod     | Form handling and validation         |
 | Testing          | Jest + React Native Testing Library | Unit and component tests |
 | CI/CD            | EAS Build + GitHub Actions | Automated builds and deployments     |

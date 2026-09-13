@@ -1,6 +1,6 @@
 import * as Location from "expo-location";
 
-import type { Coordinates } from "@/types/location";
+import type { Coordinates, PlaceAddress } from "@/types/location";
 
 /**
  * Thrown when the user denies (or has previously denied) the foreground
@@ -30,4 +30,48 @@ export async function getCurrentCoordinates(): Promise<Coordinates> {
     latitude: position.coords.latitude,
     longitude: position.coords.longitude,
   };
+}
+
+/**
+ * Fallback map region (central Bengaluru, matching the design mockups) used
+ * when the current location can't be determined yet — e.g. permission
+ * denied on first mount of the Select Location screen (issue #6).
+ */
+export const DEFAULT_REGION: Coordinates = {
+  latitude: 12.9716,
+  longitude: 77.5946,
+};
+
+/**
+ * Forward-geocodes a free-text search query (place name or address) to
+ * coordinates. Returns `null` when the query doesn't match any location,
+ * rather than throwing, so callers can show a friendly "no results" state.
+ */
+export async function geocodeAddress(query: string): Promise<Coordinates | null> {
+  const trimmed = query.trim();
+  if (!trimmed) return null;
+
+  const results = await Location.geocodeAsync(trimmed);
+  const [first] = results;
+  if (!first) return null;
+
+  return { latitude: first.latitude, longitude: first.longitude };
+}
+
+/**
+ * Reverse-geocodes coordinates to a display name/address for the Select
+ * Location bottom card. Returns `null` if no address could be resolved.
+ */
+export async function reverseGeocode(coordinates: Coordinates): Promise<PlaceAddress | null> {
+  const results = await Location.reverseGeocodeAsync(coordinates);
+  const [first] = results;
+  if (!first) return null;
+
+  const address =
+    first.formattedAddress ??
+    [first.street, first.city, first.region].filter(Boolean).join(", ");
+
+  if (!address) return null;
+
+  return { name: first.name ?? undefined, address };
 }

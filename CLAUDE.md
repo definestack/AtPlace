@@ -42,7 +42,7 @@ Target platform: **Android** (Expo / React Native).
 | Location         | Expo Location                       | Access device location                           |
 | Geofencing       | Expo Location / Native capabilities | Detect arrival at saved locations                |
 | Notifications    | Expo Notifications                  | Trigger local reminder notifications             |
-| Maps             | React Native Maps                   | Select and display locations                     |
+| Maps             | Expo Maps                           | Select and display locations                     |
 | Forms            | React Hook Form + Zod               | Form handling and validation                     |
 | Testing          | Jest + React Native Testing Library | Unit and component testing                       |
 | Build & CI/CD    | EAS Build + GitHub Actions          | Automated application builds                     |
