@@ -24,7 +24,14 @@ module.exports = {
         monochromeImage: "./assets/images/android-icon-monochrome.png",
       },
       predictiveBackGestureEnabled: false,
-      permissions: ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION"],
+      permissions: [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "POST_NOTIFICATIONS",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION",
+      ],
       config: {
         googleMaps: {
           apiKey: process.env.GOOGLE_MAPS_API_KEY,
@@ -45,10 +52,15 @@ module.exports = {
         "expo-location",
         {
           locationWhenInUsePermission: "AtPlace uses your location to save the place you're at.",
+          locationAlwaysAndWhenInUsePermission:
+            "AtPlace uses your location in the background to remind you when you arrive at a saved place.",
+          isAndroidBackgroundLocationEnabled: true,
+          isAndroidForegroundServiceEnabled: true,
         },
       ],
       "expo-maps",
       "expo-sqlite",
+      "expo-notifications",
     ],
     experiments: {
       typedRoutes: true,
