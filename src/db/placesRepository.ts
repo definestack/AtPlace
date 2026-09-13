@@ -60,3 +60,14 @@ export async function getAllPlaces(): Promise<Place[]> {
   );
   return rows.map(toPlace);
 }
+
+/**
+ * Deletes every saved place. Used by restore (`services/backup.ts`), which
+ * replaces all local data with an imported backup — callers must delete
+ * reminders first (`remindersRepository.deleteAllReminders`) to satisfy the
+ * `reminders.place_id → places(id)` reference.
+ */
+export async function deleteAllPlaces(): Promise<void> {
+  const db = await getDatabase();
+  await db.runAsync("DELETE FROM places");
+}

@@ -12,6 +12,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { requestGeofencingPermissions, syncGeofences } from "@/services/geofencing";
 import { usePlacesStore } from "@/store/placesStore";
 import { useRemindersStore } from "@/store/remindersStore";
+import { useSettingsStore } from "@/store/settingsStore";
 import { useThemeStore } from "@/store/themeStore";
 
 export default function RootLayout() {
@@ -20,6 +21,7 @@ export default function RootLayout() {
   const hydrate = useThemeStore((state) => state.hydrate);
   const hydratePlaces = usePlacesStore((state) => state.hydrate);
   const hydrateReminders = useRemindersStore((state) => state.hydrate);
+  const hydrateSettings = useSettingsStore((state) => state.hydrate);
   const reminders = useRemindersStore((state) => state.reminders);
   const remindersHydrated = useRemindersStore((state) => state.hydrated);
 
@@ -27,7 +29,8 @@ export default function RootLayout() {
     hydrate();
     hydratePlaces();
     hydrateReminders();
-  }, [hydrate, hydratePlaces, hydrateReminders]);
+    hydrateSettings();
+  }, [hydrate, hydratePlaces, hydrateReminders, hydrateSettings]);
 
   useEffect(() => {
     setColorScheme(mode);

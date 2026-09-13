@@ -4,6 +4,7 @@ import * as TaskManager from "expo-task-manager";
 import { getActiveRemindersForTrigger, getGeofenceRegions } from "@/db/remindersRepository";
 import { LocationPermissionDeniedError } from "@/services/location";
 import { presentReminderNotification, requestNotificationPermission } from "@/services/notifications";
+import { getNotificationsEnabled } from "@/store/settingsStore";
 import type { ReminderTrigger } from "@/types/reminder";
 
 /** Background task name — must match between `defineTask` and start/stopGeofencingAsync. */
@@ -35,6 +36,10 @@ TaskManager.defineTask<GeofenceTaskData>(GEOFENCE_TASK_NAME, async ({ data, erro
     eventType === Location.GeofencingEventType.Enter ? "arrive" : "leave";
 
   try {
+    // Settings screen "Notifications" toggle (issue #12): keep geofencing
+    // itself running, but suppress the resulting notification when disabled.
+    if (!(await getNotificationsEnabled())) return;
+
     const reminders = await getActiveRemindersForTrigger(placeId, trigger);
     for (const reminder of reminders) {
       await presentReminderNotification(reminder.placeName, reminder.title, trigger);

@@ -61,6 +61,7 @@ module.exports = {
       "expo-maps",
       "expo-sqlite",
       "expo-notifications",
+      "expo-sharing",
     ],
     experiments: {
       typedRoutes: true,
