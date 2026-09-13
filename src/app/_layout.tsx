@@ -6,16 +6,19 @@ import { useColorScheme } from "nativewind";
 import { useEffect } from "react";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
+import { usePlacesStore } from "@/store/placesStore";
 import { useThemeStore } from "@/store/themeStore";
 
 export default function RootLayout() {
   const { setColorScheme, colorScheme } = useColorScheme();
   const mode = useThemeStore((state) => state.mode);
   const hydrate = useThemeStore((state) => state.hydrate);
+  const hydratePlaces = usePlacesStore((state) => state.hydrate);
 
   useEffect(() => {
     hydrate();
-  }, [hydrate]);
+    hydratePlaces();
+  }, [hydrate, hydratePlaces]);
 
   useEffect(() => {
     setColorScheme(mode);
