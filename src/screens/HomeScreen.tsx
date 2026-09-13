@@ -1,14 +1,16 @@
 import { useRouter } from "expo-router";
-import { useState } from "react";
-import { FlatList, Pressable, Text, View } from "react-native";
+import { useMemo, useState } from "react";
+import { FlatList, Pressable, SectionList, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { PlaceRow } from "@/components/PlaceRow";
 import { ReminderRow } from "@/components/ReminderRow";
+import { ReminderSectionHeader } from "@/components/ReminderSectionHeader";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { SegmentedTabs } from "@/components/SegmentedTabs";
 import { usePlacesStore } from "@/store/placesStore";
 import { useRemindersStore } from "@/store/remindersStore";
+import { groupRemindersByPlace } from "@/utils/groupReminders";
 
 type HomeTab = "places" | "reminders";
 
@@ -32,6 +34,7 @@ export function HomeScreen() {
   const places = usePlacesStore((state) => state.places);
   const reminders = useRemindersStore((state) => state.reminders);
   const setReminderEnabled = useRemindersStore((state) => state.setEnabled);
+  const reminderSections = useMemo(() => groupRemindersByPlace(reminders), [reminders]);
 
   const toggleReminder = (id: string, enabled: boolean) => {
     setReminderEnabled(id, enabled);
@@ -67,10 +70,13 @@ export function HomeScreen() {
         </>
       ) : (
         <>
-          <FlatList
-            data={reminders}
+          <SectionList
+            sections={reminderSections}
             keyExtractor={(reminder) => reminder.id}
             renderItem={({ item }) => <ReminderRow reminder={item} onToggle={toggleReminder} />}
+            renderSectionHeader={({ section }) => (
+              <ReminderSectionHeader title={section.placeName} />
+            )}
             className="flex-1"
             contentContainerClassName="pt-2"
             ListEmptyComponent={
