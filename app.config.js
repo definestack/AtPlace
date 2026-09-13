@@ -48,6 +48,7 @@ module.exports = {
         },
       ],
       "expo-maps",
+      "expo-sqlite",
     ],
     experiments: {
       typedRoutes: true,

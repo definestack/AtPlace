@@ -1,19 +1,11 @@
-import type { Place } from "@/types/place";
 import type { Reminder } from "@/types/reminder";
 
 /**
- * Placeholder data for the Home screen (issue #4), matching
- * docs/design/overall-design.png mockups #2 (Saved Places) and #7
- * (Reminders List). Replace with a real store/DB in a later ticket.
+ * Placeholder data for the Home screen's Reminders tab (issue #4), matching
+ * docs/design/overall-design.png mockup #7 (Reminders List). Saved Places
+ * (mockup #2) now come from `usePlacesStore` / SQLite (issue #7) instead of
+ * mock data — reminders still need their own store/DB in a later ticket.
  */
-export const mockPlaces: Place[] = [
-  { id: "home", name: "Home", icon: "home", color: "teal", reminderCount: 3 },
-  { id: "work", name: "Work", icon: "briefcase", color: "teal", reminderCount: 2 },
-  { id: "gym", name: "Gym", icon: "barbell", color: "plum", reminderCount: 1 },
-  { id: "supermarket", name: "Supermarket", icon: "cart", color: "mint", reminderCount: 1 },
-  { id: "pharmacy", name: "Pharmacy", icon: "medkit", color: "coral", reminderCount: 1 },
-];
-
 export const mockReminders: Reminder[] = [
   {
     id: "get-laptop",

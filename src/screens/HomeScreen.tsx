@@ -7,7 +7,8 @@ import { PlaceRow } from "@/components/PlaceRow";
 import { ReminderRow } from "@/components/ReminderRow";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { SegmentedTabs } from "@/components/SegmentedTabs";
-import { mockPlaces, mockReminders } from "@/data/mockData";
+import { mockReminders } from "@/data/mockData";
+import { usePlacesStore } from "@/store/placesStore";
 
 type HomeTab = "places" | "reminders";
 
@@ -21,13 +22,15 @@ const TAB_OPTIONS: [
 
 /**
  * Home screen (issue #4): saved places / reminders hub, matching mockups
- * #2 (Saved Places) and #7 (Reminders List). Reads from mock data for now —
- * a real store/DB lands in a later ticket.
+ * #2 (Saved Places) and #7 (Reminders List). Places are read from
+ * `usePlacesStore` (SQLite-backed, issue #7); reminders still use mock data
+ * until their own store/DB lands in a later ticket.
  */
 export function HomeScreen() {
   const router = useRouter();
   const [tab, setTab] = useState<HomeTab>("places");
   const [reminders, setReminders] = useState(mockReminders);
+  const places = usePlacesStore((state) => state.places);
 
   const toggleReminder = (id: string, enabled: boolean) => {
     setReminders((current) => current.map((r) => (r.id === id ? { ...r, enabled } : r)));
@@ -41,11 +44,18 @@ export function HomeScreen() {
       {tab === "places" ? (
         <>
           <FlatList
-            data={mockPlaces}
+            data={places}
             keyExtractor={(place) => place.id}
             renderItem={({ item }) => <PlaceRow place={item} />}
             className="flex-1"
             contentContainerClassName="pt-2"
+            ListEmptyComponent={
+              <View className="flex-1 items-center justify-center px-8 py-12">
+                <Text className="text-center text-base text-muted dark:text-mutedDark">
+                  No places saved yet
+                </Text>
+              </View>
+            }
           />
           <Pressable
             onPress={() => router.push("/add-place")}

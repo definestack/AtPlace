@@ -13,7 +13,13 @@ export type PlaceColor = "teal" | "plum" | "mint" | "coral";
 export type Place = {
   id: string;
   name: string;
+  address?: string;
+  latitude: number;
+  longitude: number;
   icon: PlaceIconName;
   color: PlaceColor;
   reminderCount: number;
 };
+
+/** Input for creating a new place — `reminderCount` starts at 0 server-side. */
+export type NewPlace = Omit<Place, "reminderCount">;
