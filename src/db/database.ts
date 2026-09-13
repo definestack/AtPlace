@@ -40,6 +40,13 @@ const migrations: Migration[] = [
       );
     `);
   },
+  // v3: geofence trigger radius on `places` (issue #10). Additive column with
+  // a sensible default so existing places keep working unchanged.
+  async (db) => {
+    await db.execAsync(`
+      ALTER TABLE places ADD COLUMN radius REAL NOT NULL DEFAULT 150;
+    `);
+  },
 ];
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;

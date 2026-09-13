@@ -1,6 +1,9 @@
 import { getDatabase } from "@/db/database";
 import type { NewPlace, Place, PlaceColor, PlaceIconName } from "@/types/place";
 
+/** Default geofence trigger radius (meters) for places created without one. */
+export const DEFAULT_GEOFENCE_RADIUS_M = 150;
+
 /** Raw row shape as stored in SQLite (snake_case columns), plus a joined reminder count. */
 type PlaceRowRecord = {
   id: string;
@@ -10,6 +13,7 @@ type PlaceRowRecord = {
   longitude: number;
   icon: string;
   color: string;
+  radius: number;
   created_at: number;
   reminder_count: number;
 };
@@ -23,6 +27,7 @@ function toPlace(row: PlaceRowRecord): Place {
     longitude: row.longitude,
     icon: row.icon as PlaceIconName,
     color: row.color as PlaceColor,
+    radius: row.radius,
     reminderCount: row.reminder_count,
   };
 }
@@ -31,8 +36,8 @@ function toPlace(row: PlaceRowRecord): Place {
 export async function insertPlace(place: NewPlace): Promise<void> {
   const db = await getDatabase();
   await db.runAsync(
-    `INSERT INTO places (id, name, address, latitude, longitude, icon, color, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO places (id, name, address, latitude, longitude, icon, color, radius, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     place.id,
     place.name,
     place.address ?? null,
@@ -40,6 +45,7 @@ export async function insertPlace(place: NewPlace): Promise<void> {
     place.longitude,
     place.icon,
     place.color,
+    place.radius ?? DEFAULT_GEOFENCE_RADIUS_M,
     Date.now(),
   );
 }

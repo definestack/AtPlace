@@ -60,3 +60,83 @@ export async function setReminderEnabled(id: string, enabled: boolean): Promise<
   const db = await getDatabase();
   await db.runAsync("UPDATE reminders SET enabled = ? WHERE id = ?", enabled ? 1 : 0, id);
 }
+
+/**
+ * A place that should be actively geofenced, because it has at least one
+ * enabled reminder. `notifyOnEnter`/`notifyOnExit` mirror `Location.LocationRegion`
+ * and are derived from whether an enabled `arrive`/`leave` reminder exists for
+ * this place, so the OS only wakes the geofence task for transitions that
+ * matter (issue #10).
+ */
+export type GeofenceRegion = {
+  placeId: string;
+  name: string;
+  latitude: number;
+  longitude: number;
+  radius: number;
+  notifyOnEnter: boolean;
+  notifyOnExit: boolean;
+};
+
+type GeofenceRegionRowRecord = {
+  place_id: string;
+  name: string;
+  latitude: number;
+  longitude: number;
+  radius: number;
+  notify_on_enter: number;
+  notify_on_exit: number;
+};
+
+/**
+ * Reads one row per place with at least one enabled reminder, for syncing
+ * against `Location.startGeofencingAsync`. Places with no enabled reminders
+ * are omitted entirely (AC: "only triggers for active reminders").
+ */
+export async function getGeofenceRegions(): Promise<GeofenceRegion[]> {
+  const db = await getDatabase();
+  const rows = await db.getAllAsync<GeofenceRegionRowRecord>(
+    `SELECT p.id AS place_id, p.name, p.latitude, p.longitude, p.radius,
+            MAX(CASE WHEN r.trigger = 'arrive' THEN 1 ELSE 0 END) AS notify_on_enter,
+            MAX(CASE WHEN r.trigger = 'leave' THEN 1 ELSE 0 END) AS notify_on_exit
+     FROM places p
+     JOIN reminders r ON r.place_id = p.id AND r.enabled = 1
+     GROUP BY p.id`,
+  );
+  return rows.map((row) => ({
+    placeId: row.place_id,
+    name: row.name,
+    latitude: row.latitude,
+    longitude: row.longitude,
+    radius: row.radius,
+    notifyOnEnter: row.notify_on_enter === 1,
+    notifyOnExit: row.notify_on_exit === 1,
+  }));
+}
+
+/** A reminder's display text, for building a geofence-triggered notification. */
+export type ActiveReminderSummary = {
+  title: string;
+  placeName: string;
+};
+
+/**
+ * Reads the enabled reminders for a place matching the given trigger
+ * (`"arrive"` on geofence enter, `"leave"` on exit) — called from the
+ * geofencing task handler to build notification content.
+ */
+export async function getActiveRemindersForTrigger(
+  placeId: string,
+  trigger: ReminderTrigger,
+): Promise<ActiveReminderSummary[]> {
+  const db = await getDatabase();
+  const rows = await db.getAllAsync<{ title: string; place_name: string }>(
+    `SELECT r.title, p.name AS place_name
+     FROM reminders r
+     JOIN places p ON p.id = r.place_id
+     WHERE r.place_id = ? AND r.trigger = ? AND r.enabled = 1`,
+    placeId,
+    trigger,
+  );
+  return rows.map((row) => ({ title: row.title, placeName: row.place_name }));
+}
