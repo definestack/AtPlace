@@ -7,6 +7,7 @@ import { useEffect } from "react";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { usePlacesStore } from "@/store/placesStore";
+import { useRemindersStore } from "@/store/remindersStore";
 import { useThemeStore } from "@/store/themeStore";
 
 export default function RootLayout() {
@@ -14,11 +15,13 @@ export default function RootLayout() {
   const mode = useThemeStore((state) => state.mode);
   const hydrate = useThemeStore((state) => state.hydrate);
   const hydratePlaces = usePlacesStore((state) => state.hydrate);
+  const hydrateReminders = useRemindersStore((state) => state.hydrate);
 
   useEffect(() => {
     hydrate();
     hydratePlaces();
-  }, [hydrate, hydratePlaces]);
+    hydrateReminders();
+  }, [hydrate, hydratePlaces, hydrateReminders]);
 
   useEffect(() => {
     setColorScheme(mode);

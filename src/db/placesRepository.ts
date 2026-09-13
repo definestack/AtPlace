@@ -1,7 +1,7 @@
 import { getDatabase } from "@/db/database";
 import type { NewPlace, Place, PlaceColor, PlaceIconName } from "@/types/place";
 
-/** Raw row shape as stored in SQLite (snake_case columns, no reminder count). */
+/** Raw row shape as stored in SQLite (snake_case columns), plus a joined reminder count. */
 type PlaceRowRecord = {
   id: string;
   name: string;
@@ -11,6 +11,7 @@ type PlaceRowRecord = {
   icon: string;
   color: string;
   created_at: number;
+  reminder_count: number;
 };
 
 function toPlace(row: PlaceRowRecord): Place {
@@ -22,8 +23,7 @@ function toPlace(row: PlaceRowRecord): Place {
     longitude: row.longitude,
     icon: row.icon as PlaceIconName,
     color: row.color as PlaceColor,
-    // No reminders table yet — every place reports zero until that lands.
-    reminderCount: 0,
+    reminderCount: row.reminder_count,
   };
 }
 
@@ -44,11 +44,13 @@ export async function insertPlace(place: NewPlace): Promise<void> {
   );
 }
 
-/** Reads all saved places, most recently created first. */
+/** Reads all saved places (with a live reminder count), most recently created first. */
 export async function getAllPlaces(): Promise<Place[]> {
   const db = await getDatabase();
   const rows = await db.getAllAsync<PlaceRowRecord>(
-    "SELECT * FROM places ORDER BY created_at DESC",
+    `SELECT p.*, (SELECT COUNT(*) FROM reminders r WHERE r.place_id = p.id) AS reminder_count
+     FROM places p
+     ORDER BY p.created_at DESC`,
   );
   return rows.map(toPlace);
 }
