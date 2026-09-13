@@ -7,8 +7,8 @@ import { PlaceRow } from "@/components/PlaceRow";
 import { ReminderRow } from "@/components/ReminderRow";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { SegmentedTabs } from "@/components/SegmentedTabs";
-import { mockReminders } from "@/data/mockData";
 import { usePlacesStore } from "@/store/placesStore";
+import { useRemindersStore } from "@/store/remindersStore";
 
 type HomeTab = "places" | "reminders";
 
@@ -23,17 +23,18 @@ const TAB_OPTIONS: [
 /**
  * Home screen (issue #4): saved places / reminders hub, matching mockups
  * #2 (Saved Places) and #7 (Reminders List). Places are read from
- * `usePlacesStore` (SQLite-backed, issue #7); reminders still use mock data
- * until their own store/DB lands in a later ticket.
+ * `usePlacesStore` (SQLite-backed, issue #7); reminders are read from
+ * `useRemindersStore` (SQLite-backed, issue #8).
  */
 export function HomeScreen() {
   const router = useRouter();
   const [tab, setTab] = useState<HomeTab>("places");
-  const [reminders, setReminders] = useState(mockReminders);
   const places = usePlacesStore((state) => state.places);
+  const reminders = useRemindersStore((state) => state.reminders);
+  const setReminderEnabled = useRemindersStore((state) => state.setEnabled);
 
   const toggleReminder = (id: string, enabled: boolean) => {
-    setReminders((current) => current.map((r) => (r.id === id ? { ...r, enabled } : r)));
+    setReminderEnabled(id, enabled);
   };
 
   return (
@@ -65,19 +66,28 @@ export function HomeScreen() {
           </Pressable>
         </>
       ) : (
-        <FlatList
-          data={reminders}
-          keyExtractor={(reminder) => reminder.id}
-          renderItem={({ item }) => <ReminderRow reminder={item} onToggle={toggleReminder} />}
-          contentContainerClassName="pt-2"
-          ListEmptyComponent={
-            <View className="flex-1 items-center justify-center px-8 py-12">
-              <Text className="text-center text-base text-muted dark:text-mutedDark">
-                No reminders yet
-              </Text>
-            </View>
-          }
-        />
+        <>
+          <FlatList
+            data={reminders}
+            keyExtractor={(reminder) => reminder.id}
+            renderItem={({ item }) => <ReminderRow reminder={item} onToggle={toggleReminder} />}
+            className="flex-1"
+            contentContainerClassName="pt-2"
+            ListEmptyComponent={
+              <View className="flex-1 items-center justify-center px-8 py-12">
+                <Text className="text-center text-base text-muted dark:text-mutedDark">
+                  No reminders yet
+                </Text>
+              </View>
+            }
+          />
+          <Pressable
+            onPress={() => router.push("/add-reminder")}
+            className="mx-6 mb-4 items-center rounded-xl bg-navy py-4"
+          >
+            <Text className="text-base font-semibold text-white">+ Add Reminder</Text>
+          </Pressable>
+        </>
       )}
     </SafeAreaView>
   );

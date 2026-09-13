@@ -27,6 +27,19 @@ const migrations: Migration[] = [
       );
     `);
   },
+  // v2: `reminders` table (issue #8), linked to `places` via `place_id`.
+  async (db) => {
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS reminders (
+        id         TEXT PRIMARY KEY NOT NULL,
+        place_id   TEXT NOT NULL REFERENCES places(id),
+        title      TEXT NOT NULL,
+        trigger    TEXT NOT NULL,
+        enabled    INTEGER NOT NULL DEFAULT 1,
+        created_at INTEGER NOT NULL
+      );
+    `);
+  },
 ];
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
