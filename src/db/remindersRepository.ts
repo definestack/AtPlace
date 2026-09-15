@@ -62,6 +62,17 @@ export async function setReminderEnabled(id: string, enabled: boolean): Promise<
 }
 
 /**
+ * Deletes every reminder. Used by restore (`services/backup.ts`), which
+ * replaces all local data with an imported backup — must run before
+ * `placesRepository.deleteAllPlaces` since `reminders.place_id` references
+ * `places(id)`.
+ */
+export async function deleteAllReminders(): Promise<void> {
+  const db = await getDatabase();
+  await db.runAsync("DELETE FROM reminders");
+}
+
+/**
  * A place that should be actively geofenced, because it has at least one
  * enabled reminder. `notifyOnEnter`/`notifyOnExit` mirror `Location.LocationRegion`
  * and are derived from whether an enabled `arrive`/`leave` reminder exists for
