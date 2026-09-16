@@ -1,6 +1,6 @@
 import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
-import { FlatList, Pressable, SectionList, Text, View } from "react-native";
+import { Alert, FlatList, Pressable, SectionList, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { PlaceRow } from "@/components/PlaceRow";
@@ -32,12 +32,34 @@ export function HomeScreen() {
   const router = useRouter();
   const [tab, setTab] = useState<HomeTab>("places");
   const places = usePlacesStore((state) => state.places);
+  const hydratePlaces = usePlacesStore((state) => state.hydrate);
   const reminders = useRemindersStore((state) => state.reminders);
   const setReminderEnabled = useRemindersStore((state) => state.setEnabled);
+  const deleteReminder = useRemindersStore((state) => state.deleteReminder);
   const reminderSections = useMemo(() => groupRemindersByPlace(reminders), [reminders]);
 
   const toggleReminder = (id: string, enabled: boolean) => {
     setReminderEnabled(id, enabled);
+  };
+
+  const confirmDeleteReminder = async (id: string) => {
+    try {
+      await deleteReminder(id);
+      await hydratePlaces();
+    } catch {
+      Alert.alert("Something went wrong", "The reminder couldn't be deleted. Please try again.");
+    }
+  };
+
+  const handleDeleteReminder = (id: string) => {
+    Alert.alert(
+      "Delete reminder?",
+      "This reminder will be permanently removed. This can't be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Delete", style: "destructive", onPress: () => confirmDeleteReminder(id) },
+      ],
+    );
   };
 
   return (
@@ -73,7 +95,9 @@ export function HomeScreen() {
           <SectionList
             sections={reminderSections}
             keyExtractor={(reminder) => reminder.id}
-            renderItem={({ item }) => <ReminderRow reminder={item} onToggle={toggleReminder} />}
+            renderItem={({ item }) => (
+              <ReminderRow reminder={item} onToggle={toggleReminder} onDelete={handleDeleteReminder} />
+            )}
             renderSectionHeader={({ section }) => (
               <ReminderSectionHeader title={section.placeName} />
             )}

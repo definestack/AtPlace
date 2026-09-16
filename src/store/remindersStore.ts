@@ -1,6 +1,11 @@
 import { create } from "zustand";
 
-import { getAllReminders, insertReminder, setReminderEnabled } from "@/db/remindersRepository";
+import {
+  deleteReminder as deleteReminderRow,
+  getAllReminders,
+  insertReminder,
+  setReminderEnabled,
+} from "@/db/remindersRepository";
 import type { NewReminder, Reminder } from "@/types/reminder";
 
 type RemindersState = {
@@ -9,13 +14,15 @@ type RemindersState = {
   hydrate: () => Promise<void>;
   addReminder: (reminder: NewReminder) => Promise<void>;
   setEnabled: (id: string, enabled: boolean) => Promise<void>;
+  deleteReminder: (id: string) => Promise<void>;
 };
 
 /**
  * Reminders, backed by SQLite (`src/db/remindersRepository.ts`). Mirrors the
  * hydrate-on-launch pattern of `placesStore` — this store is just an
- * in-memory projection of the database. `addReminder`/`setEnabled` reject on
- * failure so screens can show a friendly error instead of failing silently.
+ * in-memory projection of the database. `addReminder`/`setEnabled`/
+ * `deleteReminder` reject on failure so screens can show a friendly error
+ * instead of failing silently.
  */
 export const useRemindersStore = create<RemindersState>((set) => ({
   reminders: [],
@@ -35,6 +42,11 @@ export const useRemindersStore = create<RemindersState>((set) => ({
   },
   setEnabled: async (id, enabled) => {
     await setReminderEnabled(id, enabled);
+    const reminders = await getAllReminders();
+    set({ reminders });
+  },
+  deleteReminder: async (id) => {
+    await deleteReminderRow(id);
     const reminders = await getAllReminders();
     set({ reminders });
   },
