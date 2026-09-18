@@ -13,3 +13,14 @@ export type PlaceAddress = {
   name?: string;
   address: string;
 };
+
+/**
+ * A single match from a place-name/address text search (issue #30). Unlike
+ * `PlaceAddress`, `name` is always present — it comes directly from the
+ * search result, not a best-effort reverse geocode.
+ */
+export type PlaceSearchResult = {
+  name: string;
+  address: string;
+  coordinates: Coordinates;
+};

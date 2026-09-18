@@ -7,17 +7,18 @@ import { ActivityIndicator, Alert, Pressable, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { LocationSearchBar } from "@/components/LocationSearchBar";
+import { LocationSearchResults } from "@/components/LocationSearchResults";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { SelectedPlaceCard } from "@/components/SelectedPlaceCard";
 import {
   DEFAULT_REGION,
-  geocodeAddress,
   getCurrentCoordinates,
   LocationPermissionDeniedError,
   reverseGeocode,
 } from "@/services/location";
+import { PlacesSearchError, searchPlaces } from "@/services/placesSearch";
 import { colors } from "@/theme/colors";
-import type { Coordinates } from "@/types/location";
+import type { Coordinates, PlaceSearchResult } from "@/types/location";
 
 /** Debounce before reverse-geocoding while the map is being panned. */
 const REVERSE_GEOCODE_DELAY_MS = 600;
@@ -45,6 +46,8 @@ export function SelectLocationScreen() {
   const [address, setAddress] = useState("");
   const [addressLoading, setAddressLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<PlaceSearchResult[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
 
   // Resolve the starting region once: current GPS location, falling back to
   // a default region if permission is denied (mirrors AddPlaceScreen).
@@ -110,12 +113,40 @@ export function SelectLocationScreen() {
   };
 
   const handleSearchSubmit = async () => {
-    const result = await geocodeAddress(searchQuery);
-    if (!result) {
-      Alert.alert("No results", `We couldn't find "${searchQuery}". Try a different search.`);
-      return;
+    setSearchLoading(true);
+    try {
+      const results = await searchPlaces(searchQuery);
+      if (results.length === 0) {
+        Alert.alert("No results", `We couldn't find "${searchQuery}". Try a different search.`);
+        return;
+      }
+      // Always show the list, even for a single match, so selecting a place
+      // behaves the same way regardless of how many results came back
+      // (issue #30 — searches that share a name must all be reachable).
+      setSearchResults(results);
+    } catch (error) {
+      const message =
+        error instanceof PlacesSearchError
+          ? error.message
+          : "We couldn't complete the search. Please try again.";
+      Alert.alert("Search failed", message);
+    } finally {
+      setSearchLoading(false);
     }
-    mapRef.current?.setCameraPosition({ coordinates: result, zoom: INITIAL_ZOOM, duration: 300 });
+  };
+
+  const handleSelectResult = (result: PlaceSearchResult) => {
+    setSearchResults([]);
+    setSearchQuery(result.name);
+    hasCustomName.current = true;
+    setName(result.name);
+    // Pin position + address refresh from here on are handled by the
+    // onCameraMove event this triggers, same as handleMapClick below.
+    mapRef.current?.setCameraPosition({
+      coordinates: result.coordinates,
+      zoom: INITIAL_ZOOM,
+      duration: 300,
+    });
   };
 
   const handleRecenter = async () => {
@@ -168,6 +199,14 @@ export function SelectLocationScreen() {
             onSubmit={handleSearchSubmit}
             autoFocus={focusSearch === "true"}
           />
+
+          {(searchLoading || searchResults.length > 0) && (
+            <LocationSearchResults
+              results={searchResults}
+              loading={searchLoading}
+              onSelect={handleSelectResult}
+            />
+          )}
 
           <View className="relative mt-4 flex-1 overflow-hidden">
             <GoogleMaps.View
