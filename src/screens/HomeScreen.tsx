@@ -10,6 +10,7 @@ import { ScreenHeader } from "@/components/ScreenHeader";
 import { SegmentedTabs } from "@/components/SegmentedTabs";
 import { usePlacesStore } from "@/store/placesStore";
 import { useRemindersStore } from "@/store/remindersStore";
+import type { Place } from "@/types/place";
 import { groupRemindersByPlace } from "@/utils/groupReminders";
 
 type HomeTab = "places" | "reminders";
@@ -33,7 +34,9 @@ export function HomeScreen() {
   const [tab, setTab] = useState<HomeTab>("places");
   const places = usePlacesStore((state) => state.places);
   const hydratePlaces = usePlacesStore((state) => state.hydrate);
+  const removePlace = usePlacesStore((state) => state.removePlace);
   const reminders = useRemindersStore((state) => state.reminders);
+  const hydrateReminders = useRemindersStore((state) => state.hydrate);
   const setReminderEnabled = useRemindersStore((state) => state.setEnabled);
   const deleteReminder = useRemindersStore((state) => state.deleteReminder);
   const reminderSections = useMemo(() => groupRemindersByPlace(reminders), [reminders]);
@@ -62,6 +65,29 @@ export function HomeScreen() {
     );
   };
 
+  const confirmDeletePlace = async (place: Place) => {
+    try {
+      await removePlace(place.id);
+      await hydrateReminders();
+    } catch {
+      Alert.alert("Something went wrong", "The place couldn't be deleted. Please try again.");
+    }
+  };
+
+  const handleDeletePlace = (place: Place) => {
+    const body =
+      place.reminderCount > 0
+        ? `This will also delete ${place.reminderCount} associated reminder${
+            place.reminderCount === 1 ? "" : "s"
+          }. This can't be undone.`
+        : "This place will be permanently removed. This can't be undone.";
+
+    Alert.alert(`Delete ${place.name}?`, body, [
+      { text: "Cancel", style: "cancel" },
+      { text: "Delete", style: "destructive", onPress: () => confirmDeletePlace(place) },
+    ]);
+  };
+
   return (
     <SafeAreaView className="flex-1 bg-cream dark:bg-navy-deep" edges={["top", "left", "right"]}>
       <ScreenHeader title="AtPlace" />
@@ -72,7 +98,7 @@ export function HomeScreen() {
           <FlatList
             data={places}
             keyExtractor={(place) => place.id}
-            renderItem={({ item }) => <PlaceRow place={item} />}
+            renderItem={({ item }) => <PlaceRow place={item} onDelete={handleDeletePlace} />}
             className="flex-1"
             contentContainerClassName="pt-2"
             ListEmptyComponent={

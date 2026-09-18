@@ -9,11 +9,13 @@ import type { Place } from "@/types/place";
 type PlaceRowProps = {
   place: Place;
   onPress?: (place: Place) => void;
+  onDelete?: (place: Place) => void;
 };
 
 /** A single saved-place row on the Home screen's Places tab (mockup #2). */
-export function PlaceRow({ place, onPress }: PlaceRowProps) {
+export function PlaceRow({ place, onPress, onDelete }: PlaceRowProps) {
   const { colorScheme } = useColorScheme();
+  const isDark = colorScheme === "dark";
   const reminderLabel = `${place.reminderCount} reminder${place.reminderCount === 1 ? "" : "s"}`;
 
   return (
@@ -26,10 +28,22 @@ export function PlaceRow({ place, onPress }: PlaceRowProps) {
         <Text className="text-base font-semibold text-navy dark:text-white">{place.name}</Text>
         <Text className="text-sm text-muted dark:text-mutedDark">{reminderLabel}</Text>
       </View>
+      <Pressable
+        onPress={() => onDelete?.(place)}
+        hitSlop={12}
+        accessibilityRole="button"
+        accessibilityLabel={`Delete place ${place.name}`}
+      >
+        <Ionicons
+          name="trash-outline"
+          size={20}
+          color={isDark ? colors.mutedDark : colors.muted}
+        />
+      </Pressable>
       <Ionicons
         name="chevron-forward"
         size={20}
-        color={colorScheme === "dark" ? colors.mutedDark : colors.muted}
+        color={isDark ? colors.mutedDark : colors.muted}
       />
     </Pressable>
   );

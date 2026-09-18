@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-import { getAllPlaces, insertPlace } from "@/db/placesRepository";
+import { deletePlace as deletePlaceRow, getAllPlaces, insertPlace } from "@/db/placesRepository";
 import type { NewPlace, Place } from "@/types/place";
 
 type PlacesState = {
@@ -8,6 +8,7 @@ type PlacesState = {
   hydrated: boolean;
   hydrate: () => Promise<void>;
   addPlace: (place: NewPlace) => Promise<void>;
+  removePlace: (id: string) => Promise<void>;
 };
 
 /**
@@ -30,6 +31,11 @@ export const usePlacesStore = create<PlacesState>((set) => ({
   },
   addPlace: async (place) => {
     await insertPlace(place);
+    const places = await getAllPlaces();
+    set({ places });
+  },
+  removePlace: async (id) => {
+    await deletePlaceRow(id);
     const places = await getAllPlaces();
     set({ places });
   },

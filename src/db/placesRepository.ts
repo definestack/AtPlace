@@ -71,3 +71,17 @@ export async function deleteAllPlaces(): Promise<void> {
   const db = await getDatabase();
   await db.runAsync("DELETE FROM places");
 }
+
+/**
+ * Deletes a single place and every reminder that references it (issue #26).
+ * Runs in a transaction, deleting reminders first to satisfy the
+ * `reminders.place_id → places(id)` reference. Throws on failure — callers
+ * surface a friendly error.
+ */
+export async function deletePlace(id: string): Promise<void> {
+  const db = await getDatabase();
+  await db.withTransactionAsync(async () => {
+    await db.runAsync("DELETE FROM reminders WHERE place_id = ?", id);
+    await db.runAsync("DELETE FROM places WHERE id = ?", id);
+  });
+}
