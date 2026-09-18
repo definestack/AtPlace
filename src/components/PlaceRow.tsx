@@ -5,6 +5,7 @@ import { Pressable, Text, View } from "react-native";
 import { ItemIcon } from "@/components/ItemIcon";
 import { colors } from "@/theme/colors";
 import type { Place } from "@/types/place";
+import { getPlaceLocationLabel } from "@/utils/placeLocation";
 
 type PlaceRowProps = {
   place: Place;
@@ -26,7 +27,10 @@ export function PlaceRow({ place, onPress, onDelete }: PlaceRowProps) {
       <ItemIcon icon={place.icon} color={place.color} />
       <View className="flex-1">
         <Text className="text-base font-semibold text-navy dark:text-white">{place.name}</Text>
-        <Text className="text-sm text-muted dark:text-mutedDark">{reminderLabel}</Text>
+        <Text numberOfLines={1} className="text-sm text-muted dark:text-mutedDark">
+          {getPlaceLocationLabel(place)}
+        </Text>
+        <Text className="text-xs text-muted dark:text-mutedDark">{reminderLabel}</Text>
       </View>
       <Pressable
         onPress={() => onDelete?.(place)}
