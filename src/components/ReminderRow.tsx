@@ -1,5 +1,6 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useColorScheme } from "nativewind";
-import { Switch, Text, View } from "react-native";
+import { Pressable, Switch, Text, View } from "react-native";
 
 import { ItemIcon } from "@/components/ItemIcon";
 import { colors } from "@/theme/colors";
@@ -8,6 +9,7 @@ import type { Reminder } from "@/types/reminder";
 type ReminderRowProps = {
   reminder: Reminder;
   onToggle?: (id: string, enabled: boolean) => void;
+  onDelete?: (id: string) => void;
 };
 
 const TRIGGER_LABEL: Record<Reminder["trigger"], string> = {
@@ -16,7 +18,7 @@ const TRIGGER_LABEL: Record<Reminder["trigger"], string> = {
 };
 
 /** A single reminder row on the Home screen's Reminders tab (mockup #7). */
-export function ReminderRow({ reminder, onToggle }: ReminderRowProps) {
+export function ReminderRow({ reminder, onToggle, onDelete }: ReminderRowProps) {
   const { colorScheme } = useColorScheme();
   const isDark = colorScheme === "dark";
 
@@ -31,6 +33,18 @@ export function ReminderRow({ reminder, onToggle }: ReminderRowProps) {
           At {reminder.placeName} • {TRIGGER_LABEL[reminder.trigger]}
         </Text>
       </View>
+      <Pressable
+        onPress={() => onDelete?.(reminder.id)}
+        hitSlop={12}
+        accessibilityRole="button"
+        accessibilityLabel={`Delete reminder ${reminder.title}`}
+      >
+        <Ionicons
+          name="trash-outline"
+          size={20}
+          color={isDark ? colors.mutedDark : colors.muted}
+        />
+      </Pressable>
       <Switch
         value={reminder.enabled}
         onValueChange={(next) => onToggle?.(reminder.id, next)}

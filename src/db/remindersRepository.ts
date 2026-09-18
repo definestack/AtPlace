@@ -61,6 +61,12 @@ export async function setReminderEnabled(id: string, enabled: boolean): Promise<
   await db.runAsync("UPDATE reminders SET enabled = ? WHERE id = ?", enabled ? 1 : 0, id);
 }
 
+/** Deletes a single reminder. Throws on failure — callers surface a friendly error. */
+export async function deleteReminder(id: string): Promise<void> {
+  const db = await getDatabase();
+  await db.runAsync("DELETE FROM reminders WHERE id = ?", id);
+}
+
 /**
  * Deletes every reminder. Used by restore (`services/backup.ts`), which
  * replaces all local data with an imported backup — must run before
