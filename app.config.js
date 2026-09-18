@@ -38,6 +38,13 @@ module.exports = {
         },
       },
     },
+    // Exposed to JS (Constants.expoConfig.extra) for the Google Places Text
+    // Search REST call used by place search (issue #30). Same key/project as
+    // the native Maps SDK key above — it must also have "Places API (New)"
+    // enabled in the Google Cloud Console.
+    extra: {
+      googlePlacesApiKey: process.env.GOOGLE_MAPS_API_KEY,
+    },
     plugins: [
       "expo-router",
       [

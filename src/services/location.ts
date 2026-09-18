@@ -43,22 +43,6 @@ export const DEFAULT_REGION: Coordinates = {
 };
 
 /**
- * Forward-geocodes a free-text search query (place name or address) to
- * coordinates. Returns `null` when the query doesn't match any location,
- * rather than throwing, so callers can show a friendly "no results" state.
- */
-export async function geocodeAddress(query: string): Promise<Coordinates | null> {
-  const trimmed = query.trim();
-  if (!trimmed) return null;
-
-  const results = await Location.geocodeAsync(trimmed);
-  const [first] = results;
-  if (!first) return null;
-
-  return { latitude: first.latitude, longitude: first.longitude };
-}
-
-/**
  * Reverse-geocodes coordinates to a display name/address for the Select
  * Location bottom card. Returns `null` if no address could be resolved.
  */
