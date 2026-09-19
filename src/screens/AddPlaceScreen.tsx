@@ -1,6 +1,6 @@
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { Alert, Text, View } from "react-native";
+import { Alert, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AddPlaceOptionCard } from "@/components/AddPlaceOptionCard";
@@ -9,12 +9,12 @@ import { getCurrentCoordinates, LocationPermissionDeniedError } from "@/services
 
 /**
  * Add Place options screen (issue #5 / mockup #3): lets the user choose how
- * to add a new place — current GPS location, map selection, or address
- * search. Each option navigates to the appropriate next screen:
+ * to add a new place — current GPS location, or search/select on the map.
+ * Each option navigates to the appropriate next screen:
  * - "Use current location" fetches GPS coordinates then goes to Place
  *   Details (issue #7, placeholder for now).
- * - "Select on map" and "Enter address" both go to Select Location
- *   (issue #6, placeholder for now); address search focuses its search bar.
+ * - "Search or select on map" goes to Select Location (issue #6), which
+ *   combines address search and map selection on one screen.
  */
 export function AddPlaceScreen() {
   const router = useRouter();
@@ -53,22 +53,9 @@ export function AddPlaceScreen() {
         />
         <AddPlaceOptionCard
           icon="map-outline"
-          title="Select on map"
-          subtitle="Choose a location from map"
+          title="Search or select on map"
+          subtitle="Search an address or pick a spot on the map"
           onPress={() => router.push("/add-place/map")}
-        />
-
-        <View className="flex-row items-center gap-3 py-1">
-          <View className="h-px flex-1 bg-track dark:bg-surfaceDark" />
-          <Text className="text-sm text-muted dark:text-mutedDark">OR</Text>
-          <View className="h-px flex-1 bg-track dark:bg-surfaceDark" />
-        </View>
-
-        <AddPlaceOptionCard
-          icon="location-outline"
-          title="Enter address"
-          subtitle="Search and select an address"
-          onPress={() => router.push({ pathname: "/add-place/map", params: { focusSearch: "true" } })}
         />
       </View>
     </SafeAreaView>

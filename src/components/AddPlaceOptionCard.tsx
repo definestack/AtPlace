@@ -15,7 +15,7 @@ type AddPlaceOptionCardProps = {
 
 /**
  * A single method card on the Add Place options screen (mockup #3), e.g.
- * "Use current location" / "Select on map" / "Enter address".
+ * "Use current location" / "Search or select on map".
  */
 export function AddPlaceOptionCard({
   icon,

@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import { GoogleMaps } from "expo-maps";
 import { useColorScheme } from "nativewind";
 import { useEffect, useRef, useState } from "react";
@@ -26,8 +26,8 @@ const INITIAL_ZOOM = 16;
 
 /**
  * Select Location screen (mockup #4, issue #6) — reached from the Add Place
- * options screen via "Select on map" or "Enter address". The pin is fixed
- * at the screen center; the user pans the map underneath it (expo-maps'
+ * options screen via "Search or select on map". The pin is fixed at the
+ * screen center; the user pans the map underneath it (expo-maps'
  * `GoogleMaps.View` has no marker drag-end event, so a center-fixed pin +
  * `onCameraMove` is the reliable way to capture the selection). Tapping the
  * map or searching an address re-centers the camera onto that pin.
@@ -35,7 +35,6 @@ const INITIAL_ZOOM = 16;
 export function SelectLocationScreen() {
   const router = useRouter();
   const { colorScheme } = useColorScheme();
-  const { focusSearch } = useLocalSearchParams<{ focusSearch?: string }>();
   const mapRef = useRef<GoogleMaps.MapView>(null);
   const reverseGeocodeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasCustomName = useRef(false);
@@ -197,7 +196,6 @@ export function SelectLocationScreen() {
             value={searchQuery}
             onChangeText={setSearchQuery}
             onSubmit={handleSearchSubmit}
-            autoFocus={focusSearch === "true"}
           />
 
           {(searchLoading || searchResults.length > 0) && (
