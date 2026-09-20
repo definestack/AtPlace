@@ -46,13 +46,13 @@ export function LocationSearchResults({
               key={`${result.name}-${result.coordinates.latitude}-${result.coordinates.longitude}`}
               onPress={() => onSelect(result)}
               className={`flex-row items-center gap-3 px-4 py-3 ${
-                index === 0 ? "" : "border-t border-track dark:border-navy"
+                index === 0 ? "" : "border-t border-track dark:border-brand"
               }`}
             >
               <Ionicons name="location-outline" size={20} color={iconColor} />
               <View className="flex-1">
                 <Text
-                  className="text-base font-semibold text-navy dark:text-white"
+                  className="text-base font-semibold text-brand dark:text-white"
                   numberOfLines={1}
                 >
                   {result.name}

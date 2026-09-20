@@ -21,7 +21,7 @@ export function SettingsBackupScreen() {
   const router = useRouter();
   const { colorScheme } = useColorScheme();
   const [busy, setBusy] = useState<Busy>("none");
-  const iconColor = colorScheme === "dark" ? colors.white : colors.navy;
+  const iconColor = colorScheme === "dark" ? colors.white : colors.brand;
 
   const handleExport = async () => {
     setBusy("exporting");
@@ -64,7 +64,7 @@ export function SettingsBackupScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-cream dark:bg-navy-deep" edges={["top", "left", "right"]}>
+    <SafeAreaView className="flex-1 bg-cream dark:bg-brand-deep" edges={["top", "left", "right"]}>
       <ScreenHeader title="Backup & Restore" onBack={() => router.back()} />
       <View className="gap-4 px-6 pt-6">
         <Pressable
@@ -75,7 +75,7 @@ export function SettingsBackupScreen() {
         >
           <Ionicons name="cloud-upload-outline" size={20} color={iconColor} />
           <View className="ml-3 flex-1">
-            <Text className="text-base font-medium text-navy dark:text-white">Export data</Text>
+            <Text className="text-base font-medium text-brand dark:text-white">Export data</Text>
             <Text className="text-sm text-muted dark:text-mutedDark">
               Save your places, reminders and settings to a file
             </Text>
@@ -90,7 +90,7 @@ export function SettingsBackupScreen() {
         >
           <Ionicons name="cloud-download-outline" size={20} color={iconColor} />
           <View className="ml-3 flex-1">
-            <Text className="text-base font-medium text-navy dark:text-white">
+            <Text className="text-base font-medium text-brand dark:text-white">
               Restore from file
             </Text>
             <Text className="text-sm text-muted dark:text-mutedDark">

@@ -89,7 +89,7 @@ export function HomeScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-cream dark:bg-navy-deep" edges={["top", "left", "right"]}>
+    <SafeAreaView className="flex-1 bg-cream dark:bg-brand-deep" edges={["top", "left", "right"]}>
       <ScreenHeader title="AtPlace" />
       <SegmentedTabs options={TAB_OPTIONS} value={tab} onChange={setTab} />
 
@@ -111,7 +111,7 @@ export function HomeScreen() {
           />
           <Pressable
             onPress={() => router.push("/add-place")}
-            className="mx-6 mb-4 items-center rounded-xl bg-navy py-4"
+            className="mx-6 mb-4 items-center rounded-xl bg-brand py-4"
           >
             <Text className="text-base font-semibold text-white">+ Add Place</Text>
           </Pressable>
@@ -139,7 +139,7 @@ export function HomeScreen() {
           />
           <Pressable
             onPress={() => router.push("/add-reminder")}
-            className="mx-6 mb-4 items-center rounded-xl bg-navy py-4"
+            className="mx-6 mb-4 items-center rounded-xl bg-brand py-4"
           >
             <Text className="text-base font-semibold text-white">+ Add Reminder</Text>
           </Pressable>

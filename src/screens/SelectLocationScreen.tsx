@@ -180,10 +180,10 @@ export function SelectLocationScreen() {
     });
   };
 
-  const iconColor = colorScheme === "dark" ? colors.white : colors.navy;
+  const iconColor = colorScheme === "dark" ? colors.white : colors.brand;
 
   return (
-    <SafeAreaView className="flex-1 bg-cream dark:bg-navy-deep" edges={["top", "left", "right"]}>
+    <SafeAreaView className="flex-1 bg-cream dark:bg-brand-deep" edges={["top", "left", "right"]}>
       <ScreenHeader title="Select Location" onBack={() => router.back()} />
 
       {!initialCoords ? (

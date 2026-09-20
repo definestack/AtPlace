@@ -30,9 +30,9 @@ export function SettingsScreen() {
   const setNotificationsEnabled = useSettingsStore((state) => state.setNotificationsEnabled);
 
   return (
-    <SafeAreaView className="flex-1 bg-cream dark:bg-navy-deep" edges={["top", "left", "right"]}>
+    <SafeAreaView className="flex-1 bg-cream dark:bg-brand-deep" edges={["top", "left", "right"]}>
       <View className="px-6 pt-4">
-        <Text className="text-2xl font-bold text-navy dark:text-white">Settings</Text>
+        <Text className="text-2xl font-bold text-brand dark:text-white">Settings</Text>
       </View>
 
       <View className="mt-4">

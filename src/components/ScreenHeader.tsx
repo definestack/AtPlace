@@ -17,7 +17,7 @@ type ScreenHeaderProps = {
  */
 export function ScreenHeader({ title, onBack }: ScreenHeaderProps) {
   const { colorScheme } = useColorScheme();
-  const iconColor = colorScheme === "dark" ? colors.white : colors.navy;
+  const iconColor = colorScheme === "dark" ? colors.white : colors.brand;
 
   return (
     <View className="flex-row items-center px-6 pt-4">
@@ -26,7 +26,7 @@ export function ScreenHeader({ title, onBack }: ScreenHeaderProps) {
           <Ionicons name="chevron-back" size={24} color={iconColor} />
         </Pressable>
       ) : null}
-      <Text className="text-2xl font-bold text-navy dark:text-white">{title}</Text>
+      <Text className="text-2xl font-bold text-brand dark:text-white">{title}</Text>
     </View>
   );
 }

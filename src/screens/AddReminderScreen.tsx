@@ -31,7 +31,7 @@ export function AddReminderScreen() {
   const [trigger, setTrigger] = useState<ReminderTrigger>("arrive");
   const [saving, setSaving] = useState(false);
 
-  const textColor = colorScheme === "dark" ? colors.white : colors.navy;
+  const textColor = colorScheme === "dark" ? colors.white : colors.brand;
 
   const handleSave = async () => {
     if (!place) {
@@ -66,7 +66,7 @@ export function AddReminderScreen() {
 
   if (!place) {
     return (
-      <SafeAreaView className="flex-1 bg-cream dark:bg-navy-deep" edges={["top", "left", "right"]}>
+      <SafeAreaView className="flex-1 bg-cream dark:bg-brand-deep" edges={["top", "left", "right"]}>
         <ScreenHeader title="Add Reminder" onBack={() => router.back()} />
         <View className="flex-1 items-center justify-center px-8">
           <Text className="text-center text-base text-muted dark:text-mutedDark">
@@ -78,13 +78,13 @@ export function AddReminderScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-cream dark:bg-navy-deep" edges={["top", "left", "right"]}>
+    <SafeAreaView className="flex-1 bg-cream dark:bg-brand-deep" edges={["top", "left", "right"]}>
       <ScreenHeader title="Add Reminder" onBack={() => router.back()} />
       <ScrollView contentContainerClassName="px-6 pt-6 pb-8" keyboardShouldPersistTaps="handled">
         <View className="mb-6 flex-row items-center gap-3 rounded-xl bg-white px-4 py-4 dark:bg-surfaceDark">
           <ItemIcon icon={place.icon} color={place.color} />
           <View className="flex-1">
-            <Text className="text-base font-semibold text-navy dark:text-white">{place.name}</Text>
+            <Text className="text-base font-semibold text-brand dark:text-white">{place.name}</Text>
             {place.address ? (
               <Text className="text-sm text-muted dark:text-mutedDark">{place.address}</Text>
             ) : null}
@@ -99,7 +99,7 @@ export function AddReminderScreen() {
           onChangeText={setTitle}
           placeholder="e.g. Get my laptop"
           placeholderTextColor={colorScheme === "dark" ? colors.mutedDark : colors.muted}
-          className="mb-6 rounded-xl bg-white px-4 py-3 text-base text-navy dark:bg-surfaceDark dark:text-white"
+          className="mb-6 rounded-xl bg-white px-4 py-3 text-base text-brand dark:bg-surfaceDark dark:text-white"
           style={{ color: textColor }}
         />
 
@@ -123,7 +123,7 @@ export function AddReminderScreen() {
         <Pressable
           onPress={handleSave}
           disabled={saving}
-          className="items-center rounded-xl bg-navy py-4"
+          className="items-center rounded-xl bg-brand py-4"
           style={{ opacity: saving ? 0.7 : 1 }}
         >
           <Text className="text-base font-semibold text-white">

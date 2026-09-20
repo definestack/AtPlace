@@ -36,7 +36,7 @@ export function SettingsRow({ icon, label, subtitle, onPress, toggle }: Settings
     >
       <Ionicons name={icon} size={22} color={iconColor} />
       <View className="flex-1">
-        <Text className="text-base font-medium text-navy dark:text-white">{label}</Text>
+        <Text className="text-base font-medium text-brand dark:text-white">{label}</Text>
         {subtitle ? (
           <Text className="text-sm text-muted dark:text-mutedDark">{subtitle}</Text>
         ) : null}
@@ -45,7 +45,7 @@ export function SettingsRow({ icon, label, subtitle, onPress, toggle }: Settings
         <Switch
           value={toggle.value}
           onValueChange={toggle.onValueChange}
-          trackColor={{ false: isDark ? colors.surfaceDark : colors.track, true: colors.teal }}
+          trackColor={{ false: isDark ? colors.surfaceDark : colors.track, true: colors.brand }}
           thumbColor={colors.white}
         />
       ) : (

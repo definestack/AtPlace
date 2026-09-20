@@ -23,7 +23,7 @@ export function SettingsThemeScreen() {
   const setMode = useThemeStore((state) => state.setMode);
 
   return (
-    <SafeAreaView className="flex-1 bg-cream dark:bg-navy-deep" edges={["top", "left", "right"]}>
+    <SafeAreaView className="flex-1 bg-cream dark:bg-brand-deep" edges={["top", "left", "right"]}>
       <ScreenHeader title="App Theme" onBack={() => router.back()} />
       <View className="mt-2">
         <SettingOptionsList options={THEME_OPTIONS} value={mode} onSelect={setMode} />

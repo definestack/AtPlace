@@ -24,7 +24,7 @@ export function LocationSearchBar({
 }: LocationSearchBarProps) {
   const { colorScheme } = useColorScheme();
   const mutedColor = colorScheme === "dark" ? colors.mutedDark : colors.muted;
-  const textColor = colorScheme === "dark" ? colors.white : colors.navy;
+  const textColor = colorScheme === "dark" ? colors.white : colors.brand;
 
   return (
     <View className="mx-6 mt-4 flex-row items-center gap-2 rounded-xl bg-white px-4 py-3 dark:bg-surfaceDark">
