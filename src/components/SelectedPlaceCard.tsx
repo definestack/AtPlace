@@ -37,7 +37,7 @@ export function SelectedPlaceCard({
       className="rounded-t-2xl bg-white px-6 pt-3 dark:bg-surfaceDark"
       style={{ paddingBottom: insets.bottom + 16 }}
     >
-      <View className="mb-3 h-1 w-10 self-center rounded-full bg-track dark:bg-navy" />
+      <View className="mb-3 h-1 w-10 self-center rounded-full bg-track dark:bg-brand" />
 
       <View className="mb-1 flex-row items-center gap-2">
         {isEditingName ? (
@@ -47,11 +47,11 @@ export function SelectedPlaceCard({
             onSubmitEditing={() => setIsEditingName(false)}
             onBlur={() => setIsEditingName(false)}
             autoFocus
-            className="flex-1 text-lg font-bold text-navy dark:text-white"
-            style={{ color: colorScheme === "dark" ? colors.white : colors.navy }}
+            className="flex-1 text-lg font-bold text-brand dark:text-white"
+            style={{ color: colorScheme === "dark" ? colors.white : colors.brand }}
           />
         ) : (
-          <Text className="flex-1 text-lg font-bold text-navy dark:text-white" numberOfLines={1}>
+          <Text className="flex-1 text-lg font-bold text-brand dark:text-white" numberOfLines={1}>
             {name || "Selected location"}
           </Text>
         )}
@@ -68,7 +68,7 @@ export function SelectedPlaceCard({
         </Text>
       )}
 
-      <Pressable onPress={onSave} className="items-center rounded-xl bg-navy py-4">
+      <Pressable onPress={onSave} className="items-center rounded-xl bg-brand py-4">
         <Text className="text-base font-semibold text-white">Save Place</Text>
       </Pressable>
     </View>

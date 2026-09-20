@@ -21,7 +21,7 @@ export function SettingsUnitsScreen() {
   const setUnits = useSettingsStore((state) => state.setUnits);
 
   return (
-    <SafeAreaView className="flex-1 bg-cream dark:bg-navy-deep" edges={["top", "left", "right"]}>
+    <SafeAreaView className="flex-1 bg-cream dark:bg-brand-deep" edges={["top", "left", "right"]}>
       <ScreenHeader title="Units" onBack={() => router.back()} />
       <View className="mt-2">
         <SettingOptionsList options={UNITS_OPTIONS} value={units} onSelect={setUnits} />

@@ -26,7 +26,7 @@ export function PlaceRow({ place, onPress, onDelete }: PlaceRowProps) {
     >
       <ItemIcon icon={place.icon} color={place.color} />
       <View className="flex-1">
-        <Text className="text-base font-semibold text-navy dark:text-white">{place.name}</Text>
+        <Text className="text-base font-semibold text-brand dark:text-white">{place.name}</Text>
         <Text numberOfLines={1} className="text-sm text-muted dark:text-mutedDark">
           {getPlaceLocationLabel(place)}
         </Text>

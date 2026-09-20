@@ -12,7 +12,7 @@ type ReminderSectionHeaderProps = {
  */
 export function ReminderSectionHeader({ title }: ReminderSectionHeaderProps) {
   return (
-    <View className="bg-cream px-6 pt-4 pb-1 dark:bg-navy-deep">
+    <View className="bg-cream px-6 pt-4 pb-1 dark:bg-brand-deep">
       <Text className="text-sm font-semibold text-muted dark:text-mutedDark">{title}</Text>
     </View>
   );

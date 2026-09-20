@@ -36,7 +36,7 @@ export function PlaceDetailsScreen() {
   const [saving, setSaving] = useState(false);
 
   const addPlace = usePlacesStore((state) => state.addPlace);
-  const textColor = colorScheme === "dark" ? colors.white : colors.navy;
+  const textColor = colorScheme === "dark" ? colors.white : colors.brand;
 
   const handleChangeLocation = () => {
     router.push({
@@ -85,7 +85,7 @@ export function PlaceDetailsScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-cream dark:bg-navy-deep" edges={["top", "left", "right"]}>
+    <SafeAreaView className="flex-1 bg-cream dark:bg-brand-deep" edges={["top", "left", "right"]}>
       <ScreenHeader title="Place Details" onBack={() => router.back()} />
       <ScrollView contentContainerClassName="px-6 pt-6 pb-8" keyboardShouldPersistTaps="handled">
         <View className="mb-8 items-center">
@@ -98,7 +98,7 @@ export function PlaceDetailsScreen() {
           onChangeText={setName}
           placeholder="Place name"
           placeholderTextColor={colorScheme === "dark" ? colors.mutedDark : colors.muted}
-          className="mb-5 rounded-xl bg-white px-4 py-3 text-base text-navy dark:bg-surfaceDark dark:text-white"
+          className="mb-5 rounded-xl bg-white px-4 py-3 text-base text-brand dark:bg-surfaceDark dark:text-white"
           style={{ color: textColor }}
         />
 
@@ -108,7 +108,7 @@ export function PlaceDetailsScreen() {
           onChangeText={setAddress}
           placeholder="Address"
           placeholderTextColor={colorScheme === "dark" ? colors.mutedDark : colors.muted}
-          className="mb-5 rounded-xl bg-white px-4 py-3 text-base text-navy dark:bg-surfaceDark dark:text-white"
+          className="mb-5 rounded-xl bg-white px-4 py-3 text-base text-brand dark:bg-surfaceDark dark:text-white"
           style={{ color: textColor }}
           multiline
         />
@@ -118,7 +118,7 @@ export function PlaceDetailsScreen() {
           className="mb-8 flex-row items-center rounded-xl bg-white px-4 py-4 dark:bg-surfaceDark"
         >
           <Ionicons name="map-outline" size={20} color={textColor} />
-          <Text className="ml-3 flex-1 text-base font-medium text-navy dark:text-white">
+          <Text className="ml-3 flex-1 text-base font-medium text-brand dark:text-white">
             Change Location
           </Text>
           <Ionicons
@@ -131,7 +131,7 @@ export function PlaceDetailsScreen() {
         <Pressable
           onPress={handleSave}
           disabled={saving}
-          className="items-center rounded-xl bg-navy py-4"
+          className="items-center rounded-xl bg-brand py-4"
           style={{ opacity: saving ? 0.7 : 1 }}
         >
           <Text className="text-base font-semibold text-white">

@@ -12,9 +12,9 @@ type PlaceholderScreenProps = {
  */
 export function PlaceholderScreen({ title }: PlaceholderScreenProps) {
   return (
-    <SafeAreaView className="flex-1 bg-cream dark:bg-navy-deep" edges={["top", "left", "right"]}>
+    <SafeAreaView className="flex-1 bg-cream dark:bg-brand-deep" edges={["top", "left", "right"]}>
       <View className="px-6 pt-4">
-        <Text className="text-2xl font-bold text-navy dark:text-white">{title}</Text>
+        <Text className="text-2xl font-bold text-brand dark:text-white">{title}</Text>
       </View>
       <View className="flex-1 items-center justify-center px-8">
         <Text className="text-center text-base text-muted dark:text-mutedDark">Coming soon</Text>

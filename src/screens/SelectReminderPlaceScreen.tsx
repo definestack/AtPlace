@@ -21,7 +21,7 @@ export function SelectReminderPlaceScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-cream dark:bg-navy-deep" edges={["top", "left", "right"]}>
+    <SafeAreaView className="flex-1 bg-cream dark:bg-brand-deep" edges={["top", "left", "right"]}>
       <ScreenHeader title="Select Place" onBack={() => router.back()} />
       <FlatList
         data={places}
@@ -36,7 +36,7 @@ export function SelectReminderPlaceScreen() {
             </Text>
             <Pressable
               onPress={() => router.push("/add-place")}
-              className="items-center rounded-xl bg-navy px-6 py-3"
+              className="items-center rounded-xl bg-brand px-6 py-3"
             >
               <Text className="text-base font-semibold text-white">+ Add Place</Text>
             </Pressable>

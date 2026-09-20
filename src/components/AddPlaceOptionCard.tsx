@@ -25,7 +25,7 @@ export function AddPlaceOptionCard({
   loading = false,
 }: AddPlaceOptionCardProps) {
   const { colorScheme } = useColorScheme();
-  const iconColor = colorScheme === "dark" ? colors.white : colors.navy;
+  const iconColor = colorScheme === "dark" ? colors.white : colors.brand;
 
   return (
     <Pressable
@@ -33,7 +33,7 @@ export function AddPlaceOptionCard({
       disabled={loading}
       className="flex-row items-center gap-4 rounded-xl bg-white p-4 dark:bg-surfaceDark"
     >
-      <View className="h-11 w-11 items-center justify-center rounded-full bg-track dark:bg-navy">
+      <View className="h-11 w-11 items-center justify-center rounded-full bg-track dark:bg-brand">
         {loading ? (
           <ActivityIndicator color={iconColor} />
         ) : (
@@ -41,7 +41,7 @@ export function AddPlaceOptionCard({
         )}
       </View>
       <View className="flex-1">
-        <Text className="text-base font-semibold text-navy dark:text-white">{title}</Text>
+        <Text className="text-base font-semibold text-brand dark:text-white">{title}</Text>
         <Text className="text-sm text-muted dark:text-mutedDark">{subtitle}</Text>
       </View>
     </Pressable>

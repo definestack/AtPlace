@@ -17,21 +17,21 @@ export function SettingsAboutScreen() {
   const androidPackage = Constants.expoConfig?.android?.package ?? "in.definestack.atplace";
 
   return (
-    <SafeAreaView className="flex-1 bg-cream dark:bg-navy-deep" edges={["top", "left", "right"]}>
+    <SafeAreaView className="flex-1 bg-cream dark:bg-brand-deep" edges={["top", "left", "right"]}>
       <ScreenHeader title="About" onBack={() => router.back()} />
       <View className="items-center px-6 pt-8">
         <AppLogo size={72} />
-        <Text className="mt-4 text-2xl font-bold text-navy dark:text-white">At Place</Text>
+        <Text className="mt-4 text-2xl font-bold text-brand dark:text-white">At Place</Text>
         <Text className="mt-1 text-sm text-muted dark:text-mutedDark">Be where it matters.</Text>
 
         <View className="mt-8 w-full gap-4">
           <View className="flex-row items-center justify-between">
             <Text className="text-base text-muted dark:text-mutedDark">Version</Text>
-            <Text className="text-base text-navy dark:text-white">{version}</Text>
+            <Text className="text-base text-brand dark:text-white">{version}</Text>
           </View>
           <View className="flex-row items-center justify-between">
             <Text className="text-base text-muted dark:text-mutedDark">Package</Text>
-            <Text className="text-base text-navy dark:text-white">{androidPackage}</Text>
+            <Text className="text-base text-brand dark:text-white">{androidPackage}</Text>
           </View>
         </View>
 

@@ -41,14 +41,14 @@ export function SettingOptionsList<T extends string>({
             <Text
               className={
                 isActive
-                  ? "text-base font-semibold text-navy dark:text-white"
-                  : "text-base text-navy dark:text-white"
+                  ? "text-base font-semibold text-brand dark:text-white"
+                  : "text-base text-brand dark:text-white"
               }
             >
               {option.label}
             </Text>
             {isActive ? (
-              <Ionicons name="checkmark" size={22} color={isDark ? colors.tealLight : colors.teal} />
+              <Ionicons name="checkmark" size={22} color={isDark ? colors.brandLight : colors.brand} />
             ) : null}
           </Pressable>
         );

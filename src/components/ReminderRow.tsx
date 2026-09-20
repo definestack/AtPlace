@@ -26,7 +26,7 @@ export function ReminderRow({ reminder, onToggle, onDelete }: ReminderRowProps) 
     <View className="flex-row items-center gap-3 px-6 py-3">
       <ItemIcon icon={reminder.placeIcon} color={reminder.placeColor} />
       <View className="flex-1">
-        <Text className="text-base font-semibold text-navy dark:text-white">
+        <Text className="text-base font-semibold text-brand dark:text-white">
           {reminder.title}
         </Text>
         <Text className="text-sm text-muted dark:text-mutedDark">
@@ -48,7 +48,7 @@ export function ReminderRow({ reminder, onToggle, onDelete }: ReminderRowProps) 
       <Switch
         value={reminder.enabled}
         onValueChange={(next) => onToggle?.(reminder.id, next)}
-        trackColor={{ false: isDark ? colors.surfaceDark : colors.track, true: colors.teal }}
+        trackColor={{ false: isDark ? colors.surfaceDark : colors.track, true: colors.brand }}
         thumbColor={colors.white}
       />
     </View>

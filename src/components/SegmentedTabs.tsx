@@ -13,7 +13,7 @@ type SegmentedTabsProps<T extends string> = {
 
 /**
  * Two-segment pill toggle (e.g. Places / Reminders on mockup #2, #7):
- * light track with a white active pill and navy active text.
+ * light track with a white active pill and brand active text.
  */
 export function SegmentedTabs<T extends string>({
   options,
@@ -29,13 +29,13 @@ export function SegmentedTabs<T extends string>({
             key={option.value}
             onPress={() => onChange(option.value)}
             className={`flex-1 items-center rounded-lg py-2 ${
-              isActive ? "bg-white dark:bg-navy" : ""
+              isActive ? "bg-white dark:bg-brand" : ""
             }`}
           >
             <Text
               className={
                 isActive
-                  ? "font-semibold text-navy dark:text-white"
+                  ? "font-semibold text-brand dark:text-white"
                   : "text-muted dark:text-mutedDark"
               }
             >

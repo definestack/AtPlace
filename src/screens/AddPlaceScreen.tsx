@@ -40,7 +40,7 @@ export function AddPlaceScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-cream dark:bg-navy-deep" edges={["top", "left", "right"]}>
+    <SafeAreaView className="flex-1 bg-cream dark:bg-brand-deep" edges={["top", "left", "right"]}>
       <ScreenHeader title="Add Place" onBack={() => router.back()} />
 
       <View className="gap-3 px-6 pt-6">
