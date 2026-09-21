@@ -25,7 +25,7 @@ export function AddPlaceOptionCard({
   loading = false,
 }: AddPlaceOptionCardProps) {
   const { colorScheme } = useColorScheme();
-  const iconColor = colorScheme === "dark" ? colors.white : colors.brand;
+  const iconColor = colorScheme === "dark" ? colors.brandLight : colors.brand;
 
   return (
     <Pressable

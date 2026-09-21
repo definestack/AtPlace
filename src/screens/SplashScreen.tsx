@@ -1,4 +1,5 @@
 import { useRouter } from "expo-router";
+import { useColorScheme } from "nativewind";
 import { useEffect, useRef } from "react";
 import { Pressable, Text, View, useWindowDimensions } from "react-native";
 
@@ -14,6 +15,7 @@ const AUTO_ADVANCE_DELAY_MS = 2500;
  */
 export function SplashScreen() {
   const router = useRouter();
+  const { colorScheme } = useColorScheme();
   const { width } = useWindowDimensions();
   const hasNavigated = useRef(false);
 
@@ -42,7 +44,7 @@ export function SplashScreen() {
       </View>
 
       <View className="pb-6">
-        <SplashIllustration width={width} />
+        <SplashIllustration width={width} isDark={colorScheme === "dark"} />
         <Text className="mt-4 px-8 text-base text-brand dark:text-white">Be where it matters.</Text>
       </View>
     </Pressable>

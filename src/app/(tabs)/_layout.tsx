@@ -34,7 +34,7 @@ export default function TabsLayout() {
       initialRouteName="home"
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarActiveTintColor: isDark ? colors.white : colors.brand,
+        tabBarActiveTintColor: isDark ? colors.brandLight : colors.brand,
         tabBarInactiveTintColor: isDark ? colors.mutedDark : colors.muted,
         tabBarStyle: {
           backgroundColor: isDark ? colors.surfaceDark : colors.white,

@@ -12,6 +12,8 @@ type SettingsRowProps = {
   /** Current-value line shown under the label (e.g. "Kilometres (km)"). */
   subtitle?: string;
   onPress?: () => void;
+  /** Tints the leading icon brand-blue in both themes (mockup #10: Backup & Restore, About). */
+  accent?: boolean;
 } & (
   | { toggle?: undefined }
   | { toggle: { value: boolean; onValueChange: (value: boolean) => void } }
@@ -23,10 +25,10 @@ type SettingsRowProps = {
  * or a `Switch` for the Notifications toggle. Mirrors the row layout used by
  * `PlaceRow`/`ReminderRow`.
  */
-export function SettingsRow({ icon, label, subtitle, onPress, toggle }: SettingsRowProps) {
+export function SettingsRow({ icon, label, subtitle, onPress, toggle, accent }: SettingsRowProps) {
   const { colorScheme } = useColorScheme();
   const isDark = colorScheme === "dark";
-  const iconColor = isDark ? colors.mutedDark : colors.muted;
+  const iconColor = accent ? colors.brandLight : isDark ? colors.mutedDark : colors.muted;
 
   return (
     <Pressable
@@ -45,7 +47,10 @@ export function SettingsRow({ icon, label, subtitle, onPress, toggle }: Settings
         <Switch
           value={toggle.value}
           onValueChange={toggle.onValueChange}
-          trackColor={{ false: isDark ? colors.surfaceDark : colors.track, true: colors.brand }}
+          trackColor={{
+            false: isDark ? colors.surfaceDark : colors.track,
+            true: isDark ? colors.brandLight : colors.brand,
+          }}
           thumbColor={colors.white}
         />
       ) : (

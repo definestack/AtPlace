@@ -27,7 +27,7 @@ export function TriggerOptionCard({
   const { colorScheme } = useColorScheme();
   const isDark = colorScheme === "dark";
   const unselectedColor = isDark ? colors.mutedDark : colors.muted;
-  const selectedColor = isDark ? colors.white : colors.brand;
+  const selectedColor = isDark ? colors.brandLight : colors.brand;
   const iconColor = selected ? selectedColor : unselectedColor;
 
   return (
@@ -35,12 +35,18 @@ export function TriggerOptionCard({
       onPress={onPress}
       className={`flex-1 rounded-xl border-2 px-4 py-4 ${
         selected
-          ? "border-brand bg-brand/10 dark:border-white dark:bg-white/10"
+          ? "border-brand bg-brand/10 dark:border-brand-light dark:bg-brand-light/10"
           : "border-transparent bg-white dark:bg-surfaceDark"
       }`}
     >
       <Ionicons name={icon} size={24} color={iconColor} />
-      <Text className="mt-2 text-base font-semibold text-brand dark:text-white">{label}</Text>
+      <Text
+        className={`mt-2 text-base font-semibold ${
+          selected ? "text-brand dark:text-brand-light" : "text-brand dark:text-white"
+        }`}
+      >
+        {label}
+      </Text>
       <Text className="mt-1 text-sm text-muted dark:text-mutedDark">{description}</Text>
     </Pressable>
   );

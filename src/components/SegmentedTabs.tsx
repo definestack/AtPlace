@@ -29,7 +29,7 @@ export function SegmentedTabs<T extends string>({
             key={option.value}
             onPress={() => onChange(option.value)}
             className={`flex-1 items-center rounded-lg py-2 ${
-              isActive ? "bg-white dark:bg-brand" : ""
+              isActive ? "bg-white dark:bg-brand-light" : ""
             }`}
           >
             <Text

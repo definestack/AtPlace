@@ -68,7 +68,7 @@ export function SelectedPlaceCard({
         </Text>
       )}
 
-      <Pressable onPress={onSave} className="items-center rounded-xl bg-brand py-4">
+      <Pressable onPress={onSave} className="items-center rounded-xl bg-brand py-4 dark:bg-brand-light">
         <Text className="text-base font-semibold text-white">Save Place</Text>
       </Pressable>
     </View>
