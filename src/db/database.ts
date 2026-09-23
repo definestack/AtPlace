@@ -47,6 +47,22 @@ const migrations: Migration[] = [
       ALTER TABLE places ADD COLUMN radius REAL NOT NULL DEFAULT 150;
     `);
   },
+  // v4: `logs` table (issue #37) — persistent record of geofence triggers,
+  // notification deliveries/suppressions, and exceptions, written even when
+  // the app is closed, so background-only notification failures can be
+  // diagnosed from Settings > Event Log.
+  async (db) => {
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS logs (
+        id         TEXT PRIMARY KEY NOT NULL,
+        category   TEXT NOT NULL,
+        message    TEXT NOT NULL,
+        detail     TEXT,
+        created_at INTEGER NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_logs_created_at ON logs(created_at);
+    `);
+  },
 ];
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;

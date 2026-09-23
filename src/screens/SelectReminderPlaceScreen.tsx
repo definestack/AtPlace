@@ -36,7 +36,7 @@ export function SelectReminderPlaceScreen() {
             </Text>
             <Pressable
               onPress={() => router.push("/add-place")}
-              className="items-center rounded-xl bg-brand px-6 py-3"
+              className="items-center rounded-xl bg-brand px-6 py-3 dark:bg-brand-light"
             >
               <Text className="text-base font-semibold text-white">+ Add Place</Text>
             </Pressable>

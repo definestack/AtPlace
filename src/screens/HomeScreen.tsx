@@ -111,7 +111,7 @@ export function HomeScreen() {
           />
           <Pressable
             onPress={() => router.push("/add-place")}
-            className="mx-6 mb-4 items-center rounded-xl bg-brand py-4"
+            className="mx-6 mb-4 items-center rounded-xl bg-brand py-4 dark:bg-brand-light"
           >
             <Text className="text-base font-semibold text-white">+ Add Place</Text>
           </Pressable>
@@ -139,7 +139,7 @@ export function HomeScreen() {
           />
           <Pressable
             onPress={() => router.push("/add-reminder")}
-            className="mx-6 mb-4 items-center rounded-xl bg-brand py-4"
+            className="mx-6 mb-4 items-center rounded-xl bg-brand py-4 dark:bg-brand-light"
           >
             <Text className="text-base font-semibold text-white">+ Add Reminder</Text>
           </Pressable>

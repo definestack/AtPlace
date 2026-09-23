@@ -180,7 +180,7 @@ export function SelectLocationScreen() {
     });
   };
 
-  const iconColor = colorScheme === "dark" ? colors.white : colors.brand;
+  const iconColor = colorScheme === "dark" ? colors.brandLight : colors.brand;
 
   return (
     <SafeAreaView className="flex-1 bg-cream dark:bg-brand-deep" edges={["top", "left", "right"]}>

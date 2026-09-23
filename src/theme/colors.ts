@@ -7,21 +7,20 @@
  * expects a color prop directly (e.g. `react-native-svg` fill/stroke,
  * navigation `tabBarActiveTintColor`).
  *
- * `brand`/`brandLight`/`brandDeep` are derived from docs/design/icon.png's
- * red gradient. `brand` is deliberately darker/less saturated than the
- * icon's raw red — it doubles as this app's default text-ink color (mirroring
- * how `navy` used to work), and the icon's vivid red measured well below
- * navy's ~10:1 text contrast against `cream`. `brandLight` keeps the icon's
- * actual vivid tone for accents that need to pop (e.g. selected-state
- * indicators on a dark background). `teal`/`mint`/`coral`/`plum` are the
- * fixed `PlaceColor` palette (place marker tints) and are intentionally
- * independent of the brand color.
+ * `brand`/`brandLight`/`brandDeep` are derived from docs/design/Icon.png's
+ * blue bell+pin mark. `brand` is a near-black ink navy — it doubles as this
+ * app's default text-ink color and light-mode primary-button fill. `brandLight`
+ * is the icon's actual vivid blue, used for accents that need to pop against a
+ * dark background (dark-mode primary buttons, selected tab/segment state).
+ * `brandDeep` is the dark-mode screen background. `teal`/`mint`/`coral`/`plum`
+ * are the fixed `PlaceColor` palette (place marker tints) and are
+ * intentionally independent of the brand color.
  */
 export const colors = {
   cream: "#FAF6F0",
-  brand: "#7A1420",
-  brandLight: "#FC4B54",
-  brandDeep: "#26050C",
+  brand: "#1A344E",
+  brandLight: "#0B84F5",
+  brandDeep: "#0C1824",
   teal: "#2E9C8A",
   tealLight: "#34A897",
   muted: "#6B7280",
@@ -30,8 +29,8 @@ export const colors = {
   plum: "#8B5CF6",
   mint: "#22A559",
   coral: "#E5484D",
-  track: "#EDE7DE",
-  surfaceDark: "#3A0F1A",
+  track: "#E8EDF2",
+  surfaceDark: "#132030",
 } as const;
 
 export type ColorToken = keyof typeof colors;

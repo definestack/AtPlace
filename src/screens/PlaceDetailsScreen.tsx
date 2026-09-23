@@ -131,7 +131,7 @@ export function PlaceDetailsScreen() {
         <Pressable
           onPress={handleSave}
           disabled={saving}
-          className="items-center rounded-xl bg-brand py-4"
+          className="items-center rounded-xl bg-brand py-4 dark:bg-brand-light"
           style={{ opacity: saving ? 0.7 : 1 }}
         >
           <Text className="text-base font-semibold text-white">

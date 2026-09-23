@@ -8,9 +8,9 @@ module.exports = {
       colors: {
         cream: "#FAF6F0",
         brand: {
-          DEFAULT: "#7A1420",
-          light: "#FC4B54",
-          deep: "#26050C",
+          DEFAULT: "#1A344E",
+          light: "#0B84F5",
+          deep: "#0C1824",
         },
         teal: {
           DEFAULT: "#2E9C8A",
@@ -21,8 +21,8 @@ module.exports = {
         plum: "#8B5CF6",
         mint: "#22A559",
         coral: "#E5484D",
-        track: "#EDE7DE",
-        surfaceDark: "#3A0F1A",
+        track: "#E8EDF2",
+        surfaceDark: "#132030",
       },
     },
   },

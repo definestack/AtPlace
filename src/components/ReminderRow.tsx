@@ -48,7 +48,10 @@ export function ReminderRow({ reminder, onToggle, onDelete }: ReminderRowProps) 
       <Switch
         value={reminder.enabled}
         onValueChange={(next) => onToggle?.(reminder.id, next)}
-        trackColor={{ false: isDark ? colors.surfaceDark : colors.track, true: colors.brand }}
+        trackColor={{
+          false: isDark ? colors.surfaceDark : colors.track,
+          true: isDark ? colors.brandLight : colors.brand,
+        }}
         thumbColor={colors.white}
       />
     </View>

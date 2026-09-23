@@ -56,11 +56,19 @@ export function SettingsScreen() {
         <SettingsRow
           icon="cloud-upload-outline"
           label="Backup & Restore"
+          accent
           onPress={() => router.push("/settings-backup")}
+        />
+        <SettingsRow
+          icon="document-text-outline"
+          label="Event Log"
+          accent
+          onPress={() => router.push("/settings-logs")}
         />
         <SettingsRow
           icon="information-circle-outline"
           label="About"
+          accent
           onPress={() => router.push("/settings-about")}
         />
       </View>
