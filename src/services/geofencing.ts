@@ -3,8 +3,13 @@ import * as Location from "expo-location";
 import * as TaskManager from "expo-task-manager";
 
 import { getActiveRemindersForTrigger, getGeofenceRegions, type GeofenceRegion } from "@/db/remindersRepository";
+import { logException, logGeofence, logNotification } from "@/services/logger";
 import { LocationPermissionDeniedError } from "@/services/location";
-import { presentReminderNotification, requestNotificationPermission } from "@/services/notifications";
+import {
+  ensureNotificationChannel,
+  presentReminderNotification,
+  requestNotificationPermission,
+} from "@/services/notifications";
 import { getNotificationsEnabled } from "@/store/settingsStore";
 import type { ReminderTrigger } from "@/types/reminder";
 
@@ -43,7 +48,7 @@ type GeofenceTaskData = {
  */
 TaskManager.defineTask<GeofenceTaskData>(GEOFENCE_TASK_NAME, async ({ data, error }) => {
   if (error) {
-    console.error("Geofencing task error:", error);
+    await logException("Geofencing task error", error);
     return;
   }
   if (!data) return;
@@ -54,18 +59,23 @@ TaskManager.defineTask<GeofenceTaskData>(GEOFENCE_TASK_NAME, async ({ data, erro
 
   const trigger: ReminderTrigger =
     eventType === Location.GeofencingEventType.Enter ? "arrive" : "leave";
+  await logGeofence(`${trigger === "arrive" ? "Entered" : "Exited"} region`, placeId);
 
   try {
     // Settings screen "Notifications" toggle (issue #12): keep geofencing
     // itself running, but suppress the resulting notification when disabled.
-    if (!(await getNotificationsEnabled())) return;
+    if (!(await getNotificationsEnabled())) {
+      await logNotification("Suppressed — notifications disabled in Settings", placeId);
+      return;
+    }
 
     const reminders = await getActiveRemindersForTrigger(placeId, trigger);
     for (const reminder of reminders) {
       await presentReminderNotification(reminder.placeName, reminder.title, trigger);
+      await logNotification(`Presented "${reminder.title}"`, reminder.placeName);
     }
   } catch (err) {
-    console.error("Failed to present reminder notification:", err);
+    await logException("Failed to present reminder notification", err);
   }
 });
 
@@ -86,6 +96,7 @@ export async function requestGeofencingPermissions(): Promise<void> {
   }
 
   await requestNotificationPermission();
+  await ensureNotificationChannel();
 }
 
 /**

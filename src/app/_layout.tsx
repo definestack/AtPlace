@@ -6,10 +6,11 @@ import { useColorScheme } from "nativewind";
 import { useEffect } from "react";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
-// Importing this module also registers the background geofence task
-// (`TaskManager.defineTask` runs at module scope) so expo-task-manager can
-// find it even when the OS relaunches the JS runtime in the background (issue #10).
+// The background geofence task itself is registered from `index.js` (issue
+// #37), not here, so the OS can find it on a headless background relaunch —
+// this route layout only runs `requestGeofencingPermissions`/`syncGeofences`.
 import { requestGeofencingPermissions, syncGeofences } from "@/services/geofencing";
+import { logException, logInfo } from "@/services/logger";
 import { usePlacesStore } from "@/store/placesStore";
 import { useRemindersStore } from "@/store/remindersStore";
 import { useSettingsStore } from "@/store/settingsStore";
@@ -41,7 +42,7 @@ export default function RootLayout() {
   // rest of the app (manual reminders list) still works.
   useEffect(() => {
     requestGeofencingPermissions().catch((error) => {
-      console.warn("Geofencing permissions not granted:", error);
+      logException("Geofencing permissions not granted", error);
     });
   }, []);
 
@@ -53,7 +54,7 @@ export default function RootLayout() {
     if (!remindersHydrated) return;
 
     syncGeofences().catch((error) => {
-      console.warn("Geofence sync skipped:", error);
+      logInfo("Geofence sync skipped", error instanceof Error ? error.message : String(error));
     });
   }, [remindersHydrated, reminders]);
 

@@ -60,6 +60,12 @@ export function SettingsScreen() {
           onPress={() => router.push("/settings-backup")}
         />
         <SettingsRow
+          icon="document-text-outline"
+          label="Event Log"
+          accent
+          onPress={() => router.push("/settings-logs")}
+        />
+        <SettingsRow
           icon="information-circle-outline"
           label="About"
           accent
