@@ -5,13 +5,16 @@ export type Units = "km" | "mi";
 
 const UNITS_KEY = "atplace.units";
 const NOTIFICATIONS_ENABLED_KEY = "atplace.notificationsEnabled";
+const DEVELOPER_MODE_KEY = "atplace.developerModeEnabled";
 
 type SettingsState = {
   units: Units;
   notificationsEnabled: boolean;
+  developerModeEnabled: boolean;
   hydrated: boolean;
   setUnits: (units: Units) => void;
   setNotificationsEnabled: (enabled: boolean) => void;
+  setDeveloperModeEnabled: (enabled: boolean) => void;
   hydrate: () => Promise<void>;
 };
 
@@ -23,6 +26,7 @@ type SettingsState = {
 export const useSettingsStore = create<SettingsState>((set) => ({
   units: "km",
   notificationsEnabled: true,
+  developerModeEnabled: false,
   hydrated: false,
   setUnits: (units) => {
     set({ units });
@@ -32,17 +36,26 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     set({ notificationsEnabled: enabled });
     AsyncStorage.setItem(NOTIFICATIONS_ENABLED_KEY, String(enabled)).catch(() => {});
   },
+  setDeveloperModeEnabled: (enabled) => {
+    set({ developerModeEnabled: enabled });
+    AsyncStorage.setItem(DEVELOPER_MODE_KEY, String(enabled)).catch(() => {});
+  },
   hydrate: async () => {
     try {
-      const [storedUnits, storedNotificationsEnabled] = await Promise.all([
-        AsyncStorage.getItem(UNITS_KEY),
-        AsyncStorage.getItem(NOTIFICATIONS_ENABLED_KEY),
-      ]);
+      const [storedUnits, storedNotificationsEnabled, storedDeveloperModeEnabled] =
+        await Promise.all([
+          AsyncStorage.getItem(UNITS_KEY),
+          AsyncStorage.getItem(NOTIFICATIONS_ENABLED_KEY),
+          AsyncStorage.getItem(DEVELOPER_MODE_KEY),
+        ]);
       if (storedUnits === "km" || storedUnits === "mi") {
         set({ units: storedUnits });
       }
       if (storedNotificationsEnabled !== null) {
         set({ notificationsEnabled: storedNotificationsEnabled !== "false" });
+      }
+      if (storedDeveloperModeEnabled !== null) {
+        set({ developerModeEnabled: storedDeveloperModeEnabled === "true" });
       }
     } finally {
       set({ hydrated: true });

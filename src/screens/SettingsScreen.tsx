@@ -28,6 +28,8 @@ export function SettingsScreen() {
   const units = useSettingsStore((state) => state.units);
   const notificationsEnabled = useSettingsStore((state) => state.notificationsEnabled);
   const setNotificationsEnabled = useSettingsStore((state) => state.setNotificationsEnabled);
+  const developerModeEnabled = useSettingsStore((state) => state.developerModeEnabled);
+  const setDeveloperModeEnabled = useSettingsStore((state) => state.setDeveloperModeEnabled);
 
   return (
     <SafeAreaView className="flex-1 bg-cream dark:bg-brand-deep" edges={["top", "left", "right"]}>
@@ -59,12 +61,21 @@ export function SettingsScreen() {
           accent
           onPress={() => router.push("/settings-backup")}
         />
-        <SettingsRow
-          icon="document-text-outline"
-          label="Event Log"
-          accent
-          onPress={() => router.push("/settings-logs")}
-        />
+        {developerModeEnabled ? (
+          <>
+            <SettingsRow
+              icon="code-slash-outline"
+              label="Developer mode"
+              toggle={{ value: developerModeEnabled, onValueChange: setDeveloperModeEnabled }}
+            />
+            <SettingsRow
+              icon="document-text-outline"
+              label="Event Log"
+              accent
+              onPress={() => router.push("/settings-logs")}
+            />
+          </>
+        ) : null}
         <SettingsRow
           icon="information-circle-outline"
           label="About"
