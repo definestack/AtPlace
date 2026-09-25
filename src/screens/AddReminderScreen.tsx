@@ -6,9 +6,11 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ItemIcon } from "@/components/ItemIcon";
 import { ScreenHeader } from "@/components/ScreenHeader";
+import { TipBanner } from "@/components/TipBanner";
 import { TriggerOptionCard } from "@/components/TriggerOptionCard";
 import { usePlacesStore } from "@/store/placesStore";
 import { useRemindersStore } from "@/store/remindersStore";
+import { useSettingsStore } from "@/store/settingsStore";
 import { colors } from "@/theme/colors";
 import type { ReminderTrigger } from "@/types/reminder";
 import { generateId } from "@/utils/id";
@@ -26,6 +28,8 @@ export function AddReminderScreen() {
   const place = usePlacesStore((state) => state.places.find((p) => p.id === params.placeId));
   const hydratePlaces = usePlacesStore((state) => state.hydrate);
   const addReminder = useRemindersStore((state) => state.addReminder);
+  const reminderTipDismissed = useSettingsStore((state) => state.reminderTipDismissed);
+  const setReminderTipDismissed = useSettingsStore((state) => state.setReminderTipDismissed);
 
   const [title, setTitle] = useState("");
   const [trigger, setTrigger] = useState<ReminderTrigger>("arrive");
@@ -81,6 +85,16 @@ export function AddReminderScreen() {
     <SafeAreaView className="flex-1 bg-cream dark:bg-brand-deep" edges={["top", "left", "right"]}>
       <ScreenHeader title="Add Reminder" onBack={() => router.back()} />
       <ScrollView contentContainerClassName="px-6 pt-6 pb-8" keyboardShouldPersistTaps="handled">
+        {!reminderTipDismissed ? (
+          <View className="mb-4">
+            <TipBanner
+              icon="notifications-outline"
+              text="AtPlace will notify you when you arrive at the selected place."
+              onDismiss={() => setReminderTipDismissed(true)}
+            />
+          </View>
+        ) : null}
+
         <View className="mb-6 flex-row items-center gap-3 rounded-xl bg-white px-4 py-4 dark:bg-surfaceDark">
           <ItemIcon icon={place.icon} color={place.color} />
           <View className="flex-1">

@@ -3,13 +3,16 @@ import { useCallback, useMemo, useState } from "react";
 import { Alert, FlatList, Pressable, SectionList, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { EmptyState } from "@/components/EmptyState";
 import { PlaceRow } from "@/components/PlaceRow";
 import { ReminderRow } from "@/components/ReminderRow";
 import { ReminderSectionHeader } from "@/components/ReminderSectionHeader";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { SegmentedTabs } from "@/components/SegmentedTabs";
+import { TipBanner } from "@/components/TipBanner";
 import { usePlacesStore } from "@/store/placesStore";
 import { useRemindersStore } from "@/store/remindersStore";
+import { useSettingsStore } from "@/store/settingsStore";
 import type { Place } from "@/types/place";
 import { groupRemindersByPlace } from "@/utils/groupReminders";
 
@@ -46,13 +49,21 @@ export function HomeScreen() {
     }, [params.tab]),
   );
   const places = usePlacesStore((state) => state.places);
+  const placesHydrated = usePlacesStore((state) => state.hydrated);
   const hydratePlaces = usePlacesStore((state) => state.hydrate);
   const removePlace = usePlacesStore((state) => state.removePlace);
   const reminders = useRemindersStore((state) => state.reminders);
+  const remindersHydrated = useRemindersStore((state) => state.hydrated);
   const hydrateReminders = useRemindersStore((state) => state.hydrate);
   const setReminderEnabled = useRemindersStore((state) => state.setEnabled);
   const deleteReminder = useRemindersStore((state) => state.deleteReminder);
   const reminderSections = useMemo(() => groupRemindersByPlace(reminders), [reminders]);
+
+  // First-use guidance (issue #42): the Places tip and the celebratory /
+  // generic Reminders empty state are derived from place/reminder counts,
+  // so they update automatically as the user progresses.
+  const placesTipDismissed = useSettingsStore((state) => state.placesTipDismissed);
+  const setPlacesTipDismissed = useSettingsStore((state) => state.setPlacesTipDismissed);
 
   const toggleReminder = (id: string, enabled: boolean) => {
     setReminderEnabled(id, enabled);
@@ -114,12 +125,26 @@ export function HomeScreen() {
             renderItem={({ item }) => <PlaceRow place={item} onDelete={handleDeletePlace} />}
             className="flex-1"
             contentContainerClassName="pt-2"
+            ListHeaderComponent={
+              places.length > 0 && !placesTipDismissed ? (
+                <View className="mx-6 mt-2 mb-2">
+                  <TipBanner
+                    text="Save places like Home, Work, Supermarket or Pharmacy to use them with reminders."
+                    onDismiss={() => setPlacesTipDismissed(true)}
+                  />
+                </View>
+              ) : null
+            }
             ListEmptyComponent={
-              <View className="flex-1 items-center justify-center px-8 py-12">
-                <Text className="text-center text-base text-muted dark:text-mutedDark">
-                  No places saved yet
-                </Text>
-              </View>
+              placesHydrated ? (
+                <EmptyState
+                  icon="location-outline"
+                  title="Welcome to AtPlace"
+                  subtitle="Create reminders that come alive when you reach a place. Start by saving a place you visit frequently."
+                  ctaLabel="+ Add a Place"
+                  onCtaPress={() => router.push("/add-place")}
+                />
+              ) : null
             }
           />
           <Pressable
@@ -143,11 +168,33 @@ export function HomeScreen() {
             className="flex-1"
             contentContainerClassName="pt-2"
             ListEmptyComponent={
-              <View className="flex-1 items-center justify-center px-8 py-12">
-                <Text className="text-center text-base text-muted dark:text-mutedDark">
-                  No reminders yet
-                </Text>
-              </View>
+              remindersHydrated ? (
+                places.length === 0 ? (
+                  <EmptyState
+                    icon="location-outline"
+                    title="Add a place first"
+                    subtitle="Reminders trigger when you arrive at a saved place. Add a place to get started."
+                    ctaLabel="+ Add a Place"
+                    onCtaPress={() => router.push("/add-place")}
+                  />
+                ) : places.length === 1 ? (
+                  <EmptyState
+                    icon="checkmark-circle-outline"
+                    title="Great! You've added your first place."
+                    subtitle="Now create a reminder for when you arrive there."
+                    ctaLabel="+ Create Reminder"
+                    onCtaPress={() => router.push("/add-reminder")}
+                  />
+                ) : (
+                  <EmptyState
+                    icon="notifications-outline"
+                    title="No reminders yet"
+                    subtitle="Create a reminder that triggers when you arrive at one of your places."
+                    ctaLabel="+ Create Reminder"
+                    onCtaPress={() => router.push("/add-reminder")}
+                  />
+                )
+              ) : null
             }
           />
           <Pressable
