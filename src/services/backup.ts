@@ -2,8 +2,10 @@ import * as DocumentPicker from "expo-document-picker";
 import { File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 
+import { deleteAllNotifications } from "@/db/notificationsRepository";
 import { deleteAllPlaces, getAllPlaces, insertPlace } from "@/db/placesRepository";
 import { deleteAllReminders, getAllReminders, insertReminder } from "@/db/remindersRepository";
+import { useNotificationsStore } from "@/store/notificationsStore";
 import { usePlacesStore } from "@/store/placesStore";
 import { useRemindersStore } from "@/store/remindersStore";
 import { useSettingsStore, type Units } from "@/store/settingsStore";
@@ -95,9 +97,13 @@ export async function importData(): Promise<boolean> {
   }
 
   // Reminders reference places via a foreign key, so clear/insert in
-  // dependency order: reminders out first, places in first.
+  // dependency order: reminders out first, places in first. Notifications
+  // (issue #40) are transient device history, not part of the backup
+  // payload — clear them too so the inbox doesn't show stale entries
+  // pointing at data that's about to be replaced.
   await deleteAllReminders();
   await deleteAllPlaces();
+  await deleteAllNotifications();
 
   for (const place of payload.places) {
     const newPlace: NewPlace = {
@@ -135,7 +141,11 @@ export async function importData(): Promise<boolean> {
 
   // Re-hydrate in-memory stores from the database so screens reflect the
   // restored data immediately, without requiring an app restart.
-  await Promise.all([usePlacesStore.getState().hydrate(), useRemindersStore.getState().hydrate()]);
+  await Promise.all([
+    usePlacesStore.getState().hydrate(),
+    useRemindersStore.getState().hydrate(),
+    useNotificationsStore.getState().hydrate(),
+  ]);
 
   return true;
 }

@@ -131,10 +131,16 @@ export async function getGeofenceRegions(): Promise<GeofenceRegion[]> {
   }));
 }
 
-/** A reminder's display text, for building a geofence-triggered notification. */
+/**
+ * A reminder's display text, for building a geofence-triggered notification
+ * and the notification-history row it leaves behind (issue #40).
+ */
 export type ActiveReminderSummary = {
+  reminderId: string;
   title: string;
   placeName: string;
+  placeIcon: PlaceIconName;
+  placeColor: PlaceColor;
 };
 
 /**
@@ -147,13 +153,25 @@ export async function getActiveRemindersForTrigger(
   trigger: ReminderTrigger,
 ): Promise<ActiveReminderSummary[]> {
   const db = await getDatabase();
-  const rows = await db.getAllAsync<{ title: string; place_name: string }>(
-    `SELECT r.title, p.name AS place_name
+  const rows = await db.getAllAsync<{
+    reminder_id: string;
+    title: string;
+    place_name: string;
+    place_icon: string;
+    place_color: string;
+  }>(
+    `SELECT r.id AS reminder_id, r.title, p.name AS place_name, p.icon AS place_icon, p.color AS place_color
      FROM reminders r
      JOIN places p ON p.id = r.place_id
      WHERE r.place_id = ? AND r.trigger = ? AND r.enabled = 1`,
     placeId,
     trigger,
   );
-  return rows.map((row) => ({ title: row.title, placeName: row.place_name }));
+  return rows.map((row) => ({
+    reminderId: row.reminder_id,
+    title: row.title,
+    placeName: row.place_name,
+    placeIcon: row.place_icon as PlaceIconName,
+    placeColor: row.place_color as PlaceColor,
+  }));
 }

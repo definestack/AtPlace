@@ -63,6 +63,28 @@ const migrations: Migration[] = [
       CREATE INDEX IF NOT EXISTS idx_logs_created_at ON logs(created_at);
     `);
   },
+  // v5: `notifications` table (issue #40) — the in-app Notifications inbox.
+  // Place/reminder display fields are stored as a snapshot at delivery time
+  // (not joined) so a row keeps rendering correctly even if the source
+  // reminder/place is later edited or deleted; `reminder_id`/`place_id` are
+  // nullable links back to the live data, not foreign keys.
+  async (db) => {
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS notifications (
+        id             TEXT PRIMARY KEY NOT NULL,
+        reminder_id    TEXT,
+        place_id       TEXT,
+        reminder_title TEXT NOT NULL,
+        place_name     TEXT NOT NULL,
+        place_icon     TEXT NOT NULL,
+        place_color    TEXT NOT NULL,
+        trigger        TEXT NOT NULL,
+        read           INTEGER NOT NULL DEFAULT 0,
+        created_at     INTEGER NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at);
+    `);
+  },
 ];
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;

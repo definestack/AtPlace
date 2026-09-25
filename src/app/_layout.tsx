@@ -4,6 +4,8 @@ import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useColorScheme } from "nativewind";
 import { useEffect } from "react";
+import { AppState } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 // The background geofence task itself is registered from `index.js` (issue
@@ -11,6 +13,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 // this route layout only runs `requestGeofencingPermissions`/`syncGeofences`.
 import { requestGeofencingPermissions, syncGeofences } from "@/services/geofencing";
 import { logException, logInfo } from "@/services/logger";
+import { useNotificationsStore } from "@/store/notificationsStore";
 import { usePlacesStore } from "@/store/placesStore";
 import { useRemindersStore } from "@/store/remindersStore";
 import { useSettingsStore } from "@/store/settingsStore";
@@ -23,6 +26,7 @@ export default function RootLayout() {
   const hydratePlaces = usePlacesStore((state) => state.hydrate);
   const hydrateReminders = useRemindersStore((state) => state.hydrate);
   const hydrateSettings = useSettingsStore((state) => state.hydrate);
+  const hydrateNotifications = useNotificationsStore((state) => state.hydrate);
   const reminders = useRemindersStore((state) => state.reminders);
   const remindersHydrated = useRemindersStore((state) => state.hydrated);
 
@@ -31,7 +35,19 @@ export default function RootLayout() {
     hydratePlaces();
     hydrateReminders();
     hydrateSettings();
-  }, [hydrate, hydratePlaces, hydrateReminders, hydrateSettings]);
+    hydrateNotifications();
+  }, [hydrate, hydratePlaces, hydrateReminders, hydrateSettings, hydrateNotifications]);
+
+  // The geofence task can deliver notifications while the app is
+  // backgrounded/closed (issue #40); re-hydrate the notifications store
+  // whenever the app returns to the foreground so the list and footer
+  // badge reflect anything written in the background.
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") hydrateNotifications();
+    });
+    return () => subscription.remove();
+  }, [hydrateNotifications]);
 
   useEffect(() => {
     setColorScheme(mode);
@@ -59,9 +75,14 @@ export default function RootLayout() {
   }, [remindersHydrated, reminders]);
 
   return (
-    <SafeAreaProvider>
-      <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />
-      <Stack screenOptions={{ headerShown: false }} />
-    </SafeAreaProvider>
+    // Required by `react-native-gesture-handler` for the Notifications
+    // screen's swipe-to-reveal row actions (issue #40) to work anywhere in
+    // the tree.
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />
+        <Stack screenOptions={{ headerShown: false }} />
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }

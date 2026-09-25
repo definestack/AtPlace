@@ -1,5 +1,5 @@
-import { useRouter } from "expo-router";
-import { useMemo, useState } from "react";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import { useCallback, useMemo, useState } from "react";
 import { Alert, FlatList, Pressable, SectionList, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -31,7 +31,20 @@ const TAB_OPTIONS: [
  */
 export function HomeScreen() {
   const router = useRouter();
-  const [tab, setTab] = useState<HomeTab>("places");
+  // Notifications screen rows deep-link here with `?tab=reminders` (issue
+  // #40) so tapping a notification lands on the reminder it was about,
+  // rather than the default Places tab.
+  const params = useLocalSearchParams<{ tab?: string }>();
+  const [tab, setTab] = useState<HomeTab>(params.tab === "reminders" ? "reminders" : "places");
+
+  // Home is a tab screen and stays mounted, so a re-navigation here (e.g.
+  // tapping a notification while already on Home) won't rerun the `useState`
+  // initializer above — react to the param on every focus instead.
+  useFocusEffect(
+    useCallback(() => {
+      if (params.tab === "reminders") setTab("reminders");
+    }, [params.tab]),
+  );
   const places = usePlacesStore((state) => state.places);
   const hydratePlaces = usePlacesStore((state) => state.hydrate);
   const removePlace = usePlacesStore((state) => state.removePlace);

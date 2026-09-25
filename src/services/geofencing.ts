@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Location from "expo-location";
 import * as TaskManager from "expo-task-manager";
 
+import { insertNotification } from "@/db/notificationsRepository";
 import { getActiveRemindersForTrigger, getGeofenceRegions, type GeofenceRegion } from "@/db/remindersRepository";
 import { logException, logGeofence, logNotification } from "@/services/logger";
 import { LocationPermissionDeniedError } from "@/services/location";
@@ -73,6 +74,20 @@ TaskManager.defineTask<GeofenceTaskData>(GEOFENCE_TASK_NAME, async ({ data, erro
     for (const reminder of reminders) {
       await presentReminderNotification(reminder.placeName, reminder.title, trigger);
       await logNotification(`Presented "${reminder.title}"`, reminder.placeName);
+      // Persist a notification-inbox row alongside the OS notification
+      // (issue #40), so the in-app Notifications screen has a record of
+      // deliveries that happened while the app was closed. A denormalized
+      // snapshot of the reminder/place is stored so the row still renders
+      // correctly even if the reminder or place is later edited/deleted.
+      await insertNotification({
+        reminderId: reminder.reminderId,
+        placeId,
+        reminderTitle: reminder.title,
+        placeName: reminder.placeName,
+        placeIcon: reminder.placeIcon,
+        placeColor: reminder.placeColor,
+        trigger,
+      });
     }
   } catch (err) {
     await logException("Failed to present reminder notification", err);
