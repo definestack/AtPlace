@@ -6,15 +6,23 @@ export type Units = "km" | "mi";
 const UNITS_KEY = "atplace.units";
 const NOTIFICATIONS_ENABLED_KEY = "atplace.notificationsEnabled";
 const DEVELOPER_MODE_KEY = "atplace.developerModeEnabled";
+const PLACES_TIP_DISMISSED_KEY = "atplace.placesTipDismissed";
+const REMINDER_TIP_DISMISSED_KEY = "atplace.reminderTipDismissed";
 
 type SettingsState = {
   units: Units;
   notificationsEnabled: boolean;
   developerModeEnabled: boolean;
+  /** Whether the Places-screen contextual tip (issue #42) has been dismissed. */
+  placesTipDismissed: boolean;
+  /** Whether the Add Reminder contextual tip (issue #42) has been dismissed. */
+  reminderTipDismissed: boolean;
   hydrated: boolean;
   setUnits: (units: Units) => void;
   setNotificationsEnabled: (enabled: boolean) => void;
   setDeveloperModeEnabled: (enabled: boolean) => void;
+  setPlacesTipDismissed: (dismissed: boolean) => void;
+  setReminderTipDismissed: (dismissed: boolean) => void;
   hydrate: () => Promise<void>;
 };
 
@@ -27,6 +35,8 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   units: "km",
   notificationsEnabled: true,
   developerModeEnabled: false,
+  placesTipDismissed: false,
+  reminderTipDismissed: false,
   hydrated: false,
   setUnits: (units) => {
     set({ units });
@@ -40,14 +50,29 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     set({ developerModeEnabled: enabled });
     AsyncStorage.setItem(DEVELOPER_MODE_KEY, String(enabled)).catch(() => {});
   },
+  setPlacesTipDismissed: (dismissed) => {
+    set({ placesTipDismissed: dismissed });
+    AsyncStorage.setItem(PLACES_TIP_DISMISSED_KEY, String(dismissed)).catch(() => {});
+  },
+  setReminderTipDismissed: (dismissed) => {
+    set({ reminderTipDismissed: dismissed });
+    AsyncStorage.setItem(REMINDER_TIP_DISMISSED_KEY, String(dismissed)).catch(() => {});
+  },
   hydrate: async () => {
     try {
-      const [storedUnits, storedNotificationsEnabled, storedDeveloperModeEnabled] =
-        await Promise.all([
-          AsyncStorage.getItem(UNITS_KEY),
-          AsyncStorage.getItem(NOTIFICATIONS_ENABLED_KEY),
-          AsyncStorage.getItem(DEVELOPER_MODE_KEY),
-        ]);
+      const [
+        storedUnits,
+        storedNotificationsEnabled,
+        storedDeveloperModeEnabled,
+        storedPlacesTipDismissed,
+        storedReminderTipDismissed,
+      ] = await Promise.all([
+        AsyncStorage.getItem(UNITS_KEY),
+        AsyncStorage.getItem(NOTIFICATIONS_ENABLED_KEY),
+        AsyncStorage.getItem(DEVELOPER_MODE_KEY),
+        AsyncStorage.getItem(PLACES_TIP_DISMISSED_KEY),
+        AsyncStorage.getItem(REMINDER_TIP_DISMISSED_KEY),
+      ]);
       if (storedUnits === "km" || storedUnits === "mi") {
         set({ units: storedUnits });
       }
@@ -56,6 +81,12 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       }
       if (storedDeveloperModeEnabled !== null) {
         set({ developerModeEnabled: storedDeveloperModeEnabled === "true" });
+      }
+      if (storedPlacesTipDismissed !== null) {
+        set({ placesTipDismissed: storedPlacesTipDismissed === "true" });
+      }
+      if (storedReminderTipDismissed !== null) {
+        set({ reminderTipDismissed: storedReminderTipDismissed === "true" });
       }
     } finally {
       set({ hydrated: true });
