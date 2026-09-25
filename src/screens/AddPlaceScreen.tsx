@@ -5,7 +5,11 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AddPlaceOptionCard } from "@/components/AddPlaceOptionCard";
 import { ScreenHeader } from "@/components/ScreenHeader";
-import { getCurrentCoordinates, LocationPermissionDeniedError } from "@/services/location";
+import {
+  getCurrentCoordinates,
+  LocationPermissionDeniedError,
+  reverseGeocode,
+} from "@/services/location";
 
 /**
  * Add Place options screen (issue #5 / mockup #3): lets the user choose how
@@ -24,9 +28,15 @@ export function AddPlaceScreen() {
     setLocating(true);
     try {
       const { latitude, longitude } = await getCurrentCoordinates();
+      const result = await reverseGeocode({ latitude, longitude }).catch(() => null);
       router.push({
         pathname: "/add-place/details",
-        params: { latitude: String(latitude), longitude: String(longitude) },
+        params: {
+          latitude: String(latitude),
+          longitude: String(longitude),
+          name: result?.name,
+          address: result?.address,
+        },
       });
     } catch (error) {
       const message =
