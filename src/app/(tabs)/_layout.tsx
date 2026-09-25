@@ -3,6 +3,7 @@ import { Tabs, useRouter } from "expo-router";
 import { useColorScheme } from "nativewind";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { useNotificationsStore } from "@/store/notificationsStore";
 import { colors } from "@/theme/colors";
 
 const TAB_BAR_TOP_PADDING = 8;
@@ -28,6 +29,12 @@ export default function TabsLayout() {
   const isDark = colorScheme === "dark";
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  // Footer bell badge (issue #40): unread count is derived from the store
+  // rather than the OS notification badge (`shouldSetBadge: false` in
+  // `services/notifications.ts`), so it reflects the in-app inbox exactly.
+  const unreadCount = useNotificationsStore(
+    (state) => state.notifications.filter((notification) => !notification.read).length,
+  );
 
   return (
     <Tabs
@@ -64,7 +71,14 @@ export default function TabsLayout() {
           },
         }}
       />
-      <Tabs.Screen name="notifications" options={{ title: "Notifications" }} />
+      <Tabs.Screen
+        name="notifications"
+        options={{
+          title: "Notifications",
+          tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
+          tabBarBadgeStyle: { backgroundColor: colors.coral },
+        }}
+      />
       <Tabs.Screen name="settings" options={{ title: "Settings" }} />
     </Tabs>
   );
