@@ -13,6 +13,7 @@ import {
 } from "@/services/notifications";
 import { getNotificationsEnabled } from "@/store/settingsStore";
 import type { ReminderTrigger } from "@/types/reminder";
+import { distanceMeters } from "@/utils/geo";
 
 /** Background task name — must match between `defineTask` and start/stopGeofencingAsync. */
 export const GEOFENCE_TASK_NAME = "atplace-geofence-task";
@@ -34,6 +35,69 @@ function regionsSignature(regions: GeofenceRegion[]): string {
       .sort((a, b) => a.placeId.localeCompare(b.placeId))
       .map((r) => [r.placeId, r.latitude, r.longitude, r.radius, r.notifyOnEnter, r.notifyOnExit]),
   );
+}
+
+/**
+ * Per-place "is the device currently inside this region?" snapshot, seeded
+ * from the device's actual GPS position whenever `syncGeofences` (re)registers
+ * (see below), plus the moment it was seeded. This is what lets the task
+ * handler tell a genuine arrival/departure apart from the immediate
+ * ENTER/EXIT transition Android fires for every region on registration
+ * (issue #46) — that spurious event always matches the freshly-seeded
+ * occupancy, so `shouldNotify` recognizes it as "no real change" and skips it.
+ */
+const OCCUPANCY_KEY = "atplace.geofenceOccupancy";
+
+/** Backstop for a contradictory transition delivered shortly after registration. */
+const SETTLE_MS = 30_000;
+
+type OccupancyState = {
+  registeredAt: number;
+  occupancy: Record<string, boolean>;
+};
+
+async function getOccupancyState(): Promise<OccupancyState> {
+  const raw = await AsyncStorage.getItem(OCCUPANCY_KEY);
+  if (!raw) return { registeredAt: 0, occupancy: {} };
+  try {
+    return JSON.parse(raw) as OccupancyState;
+  } catch {
+    return { registeredAt: 0, occupancy: {} };
+  }
+}
+
+async function setOccupancyState(state: OccupancyState): Promise<void> {
+  await AsyncStorage.setItem(OCCUPANCY_KEY, JSON.stringify(state));
+}
+
+/**
+ * Decides whether a geofence event represents a genuine transition (and so
+ * should notify), given the last known occupancy for that place. Pure so the
+ * decision is easy to reason about independent of AsyncStorage/TaskManager.
+ */
+export function shouldNotify(
+  trigger: ReminderTrigger,
+  placeId: string,
+  state: OccupancyState,
+  now: number,
+): { notify: boolean; nextInside: boolean } {
+  const expectedInside = trigger === "arrive";
+  const known = state.occupancy[placeId];
+
+  // Already known to be in the state this event claims to move us to — not a
+  // real change (this is the immediate post-registration transition, or a
+  // duplicate delivery).
+  if (known === expectedInside) return { notify: false, nextInside: expectedInside };
+
+  // An apparent transition delivered shortly after (re)registration is still
+  // treated as the initial trigger rather than a real move, in case Android
+  // delivers it a little late. Occupancy is left as last known (falling back
+  // to "not expected" if we never seeded it at all).
+  if (now - state.registeredAt < SETTLE_MS) {
+    return { notify: false, nextInside: known ?? !expectedInside };
+  }
+
+  return { notify: true, nextInside: expectedInside };
 }
 
 type GeofenceTaskData = {
@@ -63,6 +127,21 @@ TaskManager.defineTask<GeofenceTaskData>(GEOFENCE_TASK_NAME, async ({ data, erro
   await logGeofence(`${trigger === "arrive" ? "Entered" : "Exited"} region`, placeId);
 
   try {
+    // Tell a genuine arrival/departure apart from the immediate ENTER/EXIT
+    // Android fires for every region as soon as it's registered (issue #46).
+    // Occupancy is updated regardless of what happens below so it never
+    // drifts from reality.
+    const occupancyState = await getOccupancyState();
+    const { notify, nextInside } = shouldNotify(trigger, placeId, occupancyState, Date.now());
+    await setOccupancyState({
+      ...occupancyState,
+      occupancy: { ...occupancyState.occupancy, [placeId]: nextInside },
+    });
+    if (!notify) {
+      await logGeofence("Suppressed — not a genuine transition", placeId);
+      return;
+    }
+
     // Settings screen "Notifications" toggle (issue #12): keep geofencing
     // itself running, but suppress the resulting notification when disabled.
     if (!(await getNotificationsEnabled())) {
@@ -130,6 +209,7 @@ export async function syncGeofences(): Promise<void> {
       await Location.stopGeofencingAsync(GEOFENCE_TASK_NAME);
     }
     await AsyncStorage.removeItem(LAST_SYNCED_REGIONS_KEY);
+    await AsyncStorage.removeItem(OCCUPANCY_KEY);
     return;
   }
 
@@ -154,4 +234,32 @@ export async function syncGeofences(): Promise<void> {
 
   await Location.startGeofencingAsync(GEOFENCE_TASK_NAME, locationRegions);
   await AsyncStorage.setItem(LAST_SYNCED_REGIONS_KEY, signature);
+  await seedOccupancy(regions);
+}
+
+/**
+ * Snapshots which of the given regions the device is currently inside, right
+ * after (re)registering them — see `OCCUPANCY_KEY` for why this matters. Reads
+ * the device's actual position so the task handler can recognize Android's
+ * immediate post-registration transition as "no real change" rather than a
+ * genuine arrival/departure. If the position can't be determined, every
+ * region is conservatively seeded as "inside", which suppresses a possible
+ * spurious ENTER rather than risk a false arrival notification.
+ */
+async function seedOccupancy(regions: GeofenceRegion[]): Promise<void> {
+  let position: Location.LocationObject | null = null;
+  try {
+    position = (await Location.getLastKnownPositionAsync()) ?? (await Location.getCurrentPositionAsync());
+  } catch (err) {
+    await logException("Failed to read position while seeding geofence occupancy", err);
+  }
+
+  const occupancy: Record<string, boolean> = {};
+  for (const region of regions) {
+    occupancy[region.placeId] = position
+      ? distanceMeters(position.coords, region) <= region.radius
+      : true;
+  }
+
+  await setOccupancyState({ registeredAt: Date.now(), occupancy });
 }
