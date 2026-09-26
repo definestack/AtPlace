@@ -4,6 +4,13 @@ import type { PlaceColor, PlaceIconName } from "@/types/place";
 export type ReminderTrigger = "arrive" | "leave";
 
 /**
+ * Whether a reminder fires once and then goes inactive, or keeps firing every
+ * time its trigger condition is met (issue #53). `"once"` is the default for
+ * new reminders.
+ */
+export type ReminderRepeat = "once" | "repeating";
+
+/**
  * A per-reminder notification setting (issue #51): `"default"` inherits the
  * global Settings > Notifications value, while `"on"`/`"off"` explicitly
  * override it regardless of later global changes. See
@@ -28,6 +35,7 @@ export type Reminder = {
   enabled: boolean;
   sound: NotificationOverride;
   vibration: NotificationOverride;
+  repeat: ReminderRepeat;
 };
 
 /** Input for creating a new reminder — place display fields are derived via join on read. */
@@ -39,4 +47,5 @@ export type NewReminder = {
   enabled: boolean;
   sound: NotificationOverride;
   vibration: NotificationOverride;
+  repeat: ReminderRepeat;
 };

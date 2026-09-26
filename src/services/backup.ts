@@ -131,6 +131,7 @@ export async function importData(): Promise<boolean> {
       enabled: reminder.enabled,
       sound: reminder.sound ?? "default",
       vibration: reminder.vibration ?? "default",
+      repeat: reminder.repeat ?? "once",
     };
     await insertReminder(newReminder);
   }

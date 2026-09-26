@@ -3,7 +3,12 @@ import * as Location from "expo-location";
 import * as TaskManager from "expo-task-manager";
 
 import { insertNotification } from "@/db/notificationsRepository";
-import { getActiveRemindersForTrigger, getGeofenceRegions, type GeofenceRegion } from "@/db/remindersRepository";
+import {
+  getActiveRemindersForTrigger,
+  getGeofenceRegions,
+  setReminderEnabled,
+  type GeofenceRegion,
+} from "@/db/remindersRepository";
 import { logException, logGeofence, logNotification } from "@/services/logger";
 import { LocationPermissionDeniedError } from "@/services/location";
 import {
@@ -162,6 +167,7 @@ TaskManager.defineTask<GeofenceTaskData>(GEOFENCE_TASK_NAME, async ({ data, erro
     ]);
 
     const reminders = await getActiveRemindersForTrigger(placeId, trigger);
+    let disabledOneTimeReminder = false;
     for (const reminder of reminders) {
       const sound = resolveOverride(reminder.sound, globalSound);
       const vibration = resolveOverride(reminder.vibration, globalVibration);
@@ -181,6 +187,23 @@ TaskManager.defineTask<GeofenceTaskData>(GEOFENCE_TASK_NAME, async ({ data, erro
         placeColor: reminder.placeColor,
         trigger,
       });
+
+      // One-time reminders (issue #53) go inactive after firing once — shown
+      // as disabled rather than deleted, so notification history is kept.
+      if (reminder.repeat === "once") {
+        await setReminderEnabled(reminder.reminderId, false);
+        await logGeofence("Disabled one-time reminder after firing", reminder.title);
+        disabledOneTimeReminder = true;
+      }
+    }
+
+    // A disabled one-time reminder may have been the last active reminder for
+    // this place — re-sync so the OS stops monitoring it. Safe to call
+    // unconditionally (no-ops when the region set is unchanged); the
+    // `enabled = 1` filter above already stops the reminder from re-firing
+    // even before this re-sync completes.
+    if (disabledOneTimeReminder) {
+      await syncGeofences();
     }
   } catch (err) {
     await logException("Failed to present reminder notification", err);
