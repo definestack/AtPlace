@@ -1,17 +1,25 @@
 import { GoogleMaps } from "expo-maps";
 import { useColorScheme } from "nativewind";
-import { useEffect, useMemo, useRef } from "react";
-import { Text, View } from "react-native";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Alert, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { LocationSearchBar } from "@/components/LocationSearchBar";
+import { LocationSearchResults } from "@/components/LocationSearchResults";
 import { ScreenHeader } from "@/components/ScreenHeader";
+import { PlacesSearchError, searchPlaces } from "@/services/placesSearch";
 import { usePlacesStore } from "@/store/placesStore";
 import { colors } from "@/theme/colors";
+import type { Coordinates, PlaceSearchResult } from "@/types/location";
 import type { Place } from "@/types/place";
 import { getCameraForPlaces } from "@/utils/mapBounds";
 
 /** Alpha suffix (~20%) appended to a place color hex for the geofence fill. */
 const CIRCLE_FILL_ALPHA = "33";
+/** Zoom level applied when recentering on a searched place (issue #50). */
+const SEARCH_RESULT_ZOOM = 16;
+/** Marker id for the temporary pin dropped on a searched place. */
+const SEARCH_MARKER_ID = "__search__";
 
 /**
  * Places Map (issue #11): shows every saved place on a `GoogleMaps.View`. Each
@@ -21,11 +29,23 @@ const CIRCLE_FILL_ALPHA = "33";
  * doubles as a preview of the trigger radius. The camera is framed to fit all
  * places, falling back to `DEFAULT_REGION` (via `getCameraForPlaces`) when none
  * exist yet.
+ *
+ * A search box (issue #50) lets the user find any place, reusing the same
+ * Google Places search stack as the Select Location screen: submitting pans
+ * the camera to the match and drops a temporary marker for it alongside the
+ * saved places.
  */
 export function MapScreen() {
   const { colorScheme } = useColorScheme();
   const places = usePlacesStore((state) => state.places);
   const mapRef = useRef<GoogleMaps.MapView>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<PlaceSearchResult[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchedPlace, setSearchedPlace] = useState<{
+    name: string;
+    coordinates: Coordinates;
+  } | null>(null);
 
   const camera = useMemo(
     () =>
@@ -42,17 +62,58 @@ export function MapScreen() {
     mapRef.current?.setCameraPosition({ ...camera, duration: 300 });
   }, [camera]);
 
-  const markers = useMemo<GoogleMaps.Marker[]>(
-    () =>
-      places.map((place) => ({
-        id: place.id,
-        coordinates: { latitude: place.latitude, longitude: place.longitude },
-        title: place.name,
-        snippet: place.address,
+  const markers = useMemo<GoogleMaps.Marker[]>(() => {
+    const placeMarkers = places.map((place) => ({
+      id: place.id,
+      coordinates: { latitude: place.latitude, longitude: place.longitude },
+      title: place.name,
+      snippet: place.address,
+      showCallout: true,
+    }));
+
+    if (!searchedPlace) return placeMarkers;
+
+    return [
+      ...placeMarkers,
+      {
+        id: SEARCH_MARKER_ID,
+        coordinates: searchedPlace.coordinates,
+        title: searchedPlace.name,
         showCallout: true,
-      })),
-    [places],
-  );
+      },
+    ];
+  }, [places, searchedPlace]);
+
+  const handleSearchSubmit = async () => {
+    setSearchLoading(true);
+    try {
+      const results = await searchPlaces(searchQuery);
+      if (results.length === 0) {
+        Alert.alert("No results", `We couldn't find "${searchQuery}". Try a different search.`);
+        return;
+      }
+      setSearchResults(results);
+    } catch (error) {
+      const message =
+        error instanceof PlacesSearchError
+          ? error.message
+          : "We couldn't complete the search. Please try again.";
+      Alert.alert("Search failed", message);
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  const handleSelectResult = (result: PlaceSearchResult) => {
+    setSearchResults([]);
+    setSearchQuery(result.name);
+    setSearchedPlace({ name: result.name, coordinates: result.coordinates });
+    mapRef.current?.setCameraPosition({
+      coordinates: result.coordinates,
+      zoom: SEARCH_RESULT_ZOOM,
+      duration: 300,
+    });
+  };
 
   const circles = useMemo<GoogleMaps.Circle[]>(
     () =>
@@ -73,6 +134,20 @@ export function MapScreen() {
   return (
     <SafeAreaView className="flex-1 bg-cream dark:bg-brand-deep" edges={["top", "left", "right"]}>
       <ScreenHeader title="Map" />
+
+      <LocationSearchBar
+        value={searchQuery}
+        onChangeText={setSearchQuery}
+        onSubmit={handleSearchSubmit}
+      />
+
+      {(searchLoading || searchResults.length > 0) && (
+        <LocationSearchResults
+          results={searchResults}
+          loading={searchLoading}
+          onSelect={handleSelectResult}
+        />
+      )}
 
       <View className="relative mt-4 flex-1 overflow-hidden">
         <GoogleMaps.View
