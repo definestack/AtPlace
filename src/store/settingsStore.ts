@@ -5,6 +5,8 @@ export type Units = "km" | "mi";
 
 const UNITS_KEY = "atplace.units";
 const NOTIFICATIONS_ENABLED_KEY = "atplace.notificationsEnabled";
+const NOTIFICATION_SOUND_KEY = "atplace.notificationSound";
+const NOTIFICATION_VIBRATION_KEY = "atplace.notificationVibration";
 const DEVELOPER_MODE_KEY = "atplace.developerModeEnabled";
 const PLACES_TIP_DISMISSED_KEY = "atplace.placesTipDismissed";
 const REMINDER_TIP_DISMISSED_KEY = "atplace.reminderTipDismissed";
@@ -12,6 +14,10 @@ const REMINDER_TIP_DISMISSED_KEY = "atplace.reminderTipDismissed";
 type SettingsState = {
   units: Units;
   notificationsEnabled: boolean;
+  /** Global default for reminder sound (issue #51); on by default. */
+  notificationSound: boolean;
+  /** Global default for reminder vibration (issue #51); on by default. */
+  notificationVibration: boolean;
   developerModeEnabled: boolean;
   /** Whether the Places-screen contextual tip (issue #42) has been dismissed. */
   placesTipDismissed: boolean;
@@ -20,6 +26,8 @@ type SettingsState = {
   hydrated: boolean;
   setUnits: (units: Units) => void;
   setNotificationsEnabled: (enabled: boolean) => void;
+  setNotificationSound: (enabled: boolean) => void;
+  setNotificationVibration: (enabled: boolean) => void;
   setDeveloperModeEnabled: (enabled: boolean) => void;
   setPlacesTipDismissed: (dismissed: boolean) => void;
   setReminderTipDismissed: (dismissed: boolean) => void;
@@ -34,6 +42,8 @@ type SettingsState = {
 export const useSettingsStore = create<SettingsState>((set) => ({
   units: "km",
   notificationsEnabled: true,
+  notificationSound: true,
+  notificationVibration: true,
   developerModeEnabled: false,
   placesTipDismissed: false,
   reminderTipDismissed: false,
@@ -45,6 +55,14 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   setNotificationsEnabled: (enabled) => {
     set({ notificationsEnabled: enabled });
     AsyncStorage.setItem(NOTIFICATIONS_ENABLED_KEY, String(enabled)).catch(() => {});
+  },
+  setNotificationSound: (enabled) => {
+    set({ notificationSound: enabled });
+    AsyncStorage.setItem(NOTIFICATION_SOUND_KEY, String(enabled)).catch(() => {});
+  },
+  setNotificationVibration: (enabled) => {
+    set({ notificationVibration: enabled });
+    AsyncStorage.setItem(NOTIFICATION_VIBRATION_KEY, String(enabled)).catch(() => {});
   },
   setDeveloperModeEnabled: (enabled) => {
     set({ developerModeEnabled: enabled });
@@ -63,12 +81,16 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       const [
         storedUnits,
         storedNotificationsEnabled,
+        storedNotificationSound,
+        storedNotificationVibration,
         storedDeveloperModeEnabled,
         storedPlacesTipDismissed,
         storedReminderTipDismissed,
       ] = await Promise.all([
         AsyncStorage.getItem(UNITS_KEY),
         AsyncStorage.getItem(NOTIFICATIONS_ENABLED_KEY),
+        AsyncStorage.getItem(NOTIFICATION_SOUND_KEY),
+        AsyncStorage.getItem(NOTIFICATION_VIBRATION_KEY),
         AsyncStorage.getItem(DEVELOPER_MODE_KEY),
         AsyncStorage.getItem(PLACES_TIP_DISMISSED_KEY),
         AsyncStorage.getItem(REMINDER_TIP_DISMISSED_KEY),
@@ -78,6 +100,12 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       }
       if (storedNotificationsEnabled !== null) {
         set({ notificationsEnabled: storedNotificationsEnabled !== "false" });
+      }
+      if (storedNotificationSound !== null) {
+        set({ notificationSound: storedNotificationSound !== "false" });
+      }
+      if (storedNotificationVibration !== null) {
+        set({ notificationVibration: storedNotificationVibration !== "false" });
       }
       if (storedDeveloperModeEnabled !== null) {
         set({ developerModeEnabled: storedDeveloperModeEnabled === "true" });
@@ -103,5 +131,25 @@ export const useSettingsStore = create<SettingsState>((set) => ({
  */
 export async function getNotificationsEnabled(): Promise<boolean> {
   const stored = await AsyncStorage.getItem(NOTIFICATIONS_ENABLED_KEY);
+  return stored !== "false";
+}
+
+/**
+ * Reads the global sound preference directly from AsyncStorage, bypassing
+ * the Zustand store — same rationale as `getNotificationsEnabled` (used by
+ * the background geofence task). Defaults to enabled when unset.
+ */
+export async function getNotificationSound(): Promise<boolean> {
+  const stored = await AsyncStorage.getItem(NOTIFICATION_SOUND_KEY);
+  return stored !== "false";
+}
+
+/**
+ * Reads the global vibration preference directly from AsyncStorage, bypassing
+ * the Zustand store — same rationale as `getNotificationsEnabled` (used by
+ * the background geofence task). Defaults to enabled when unset.
+ */
+export async function getNotificationVibration(): Promise<boolean> {
+  const stored = await AsyncStorage.getItem(NOTIFICATION_VIBRATION_KEY);
   return stored !== "false";
 }

@@ -18,8 +18,8 @@ const UNITS_LABEL: Record<"km" | "mi", string> = {
 };
 
 /**
- * Settings screen (footer tab, mockup #10): notifications toggle, units and
- * app theme drill-ins, backup & restore, and about — each backed by
+ * Settings screen (footer tab, mockup #10): notifications, units and app
+ * theme drill-ins, backup & restore, and about — each backed by
  * `settingsStore`/`themeStore` so changes persist and apply immediately.
  */
 export function SettingsScreen() {
@@ -27,7 +27,6 @@ export function SettingsScreen() {
   const themeMode = useThemeStore((state) => state.mode);
   const units = useSettingsStore((state) => state.units);
   const notificationsEnabled = useSettingsStore((state) => state.notificationsEnabled);
-  const setNotificationsEnabled = useSettingsStore((state) => state.setNotificationsEnabled);
   const developerModeEnabled = useSettingsStore((state) => state.developerModeEnabled);
   const setDeveloperModeEnabled = useSettingsStore((state) => state.setDeveloperModeEnabled);
 
@@ -41,7 +40,8 @@ export function SettingsScreen() {
         <SettingsRow
           icon="notifications-outline"
           label="Notifications"
-          toggle={{ value: notificationsEnabled, onValueChange: setNotificationsEnabled }}
+          subtitle={notificationsEnabled ? "On" : "Off"}
+          onPress={() => router.push("/settings-notifications")}
         />
         <SettingsRow
           icon="locate-outline"

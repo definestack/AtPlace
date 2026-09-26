@@ -10,6 +10,8 @@ type ReminderRowProps = {
   reminder: Reminder;
   onToggle?: (id: string, enabled: boolean) => void;
   onDelete?: (id: string) => void;
+  /** Opens the Edit Reminder screen (issue #51) when the row is tapped. */
+  onPress?: (id: string) => void;
 };
 
 const TRIGGER_LABEL: Record<Reminder["trigger"], string> = {
@@ -17,22 +19,32 @@ const TRIGGER_LABEL: Record<Reminder["trigger"], string> = {
   leave: "When I leave",
 };
 
-/** A single reminder row on the Home screen's Reminders tab (mockup #7). */
-export function ReminderRow({ reminder, onToggle, onDelete }: ReminderRowProps) {
+/**
+ * A single reminder row on the Home screen's Reminders tab (mockup #7).
+ * Tapping the title/place area opens Edit Reminder (issue #51); the delete
+ * button and enabled `Switch` remain independently tappable.
+ */
+export function ReminderRow({ reminder, onToggle, onDelete, onPress }: ReminderRowProps) {
   const { colorScheme } = useColorScheme();
   const isDark = colorScheme === "dark";
 
   return (
     <View className="flex-row items-center gap-3 px-6 py-3">
-      <ItemIcon icon={reminder.placeIcon} color={reminder.placeColor} />
-      <View className="flex-1">
-        <Text className="text-base font-semibold text-brand dark:text-white">
-          {reminder.title}
-        </Text>
-        <Text className="text-sm text-muted dark:text-mutedDark">
-          At {reminder.placeName} • {TRIGGER_LABEL[reminder.trigger]}
-        </Text>
-      </View>
+      <Pressable
+        onPress={() => onPress?.(reminder.id)}
+        disabled={!onPress}
+        className="flex-1 flex-row items-center gap-3"
+      >
+        <ItemIcon icon={reminder.placeIcon} color={reminder.placeColor} />
+        <View className="flex-1">
+          <Text className="text-base font-semibold text-brand dark:text-white">
+            {reminder.title}
+          </Text>
+          <Text className="text-sm text-muted dark:text-mutedDark">
+            At {reminder.placeName} • {TRIGGER_LABEL[reminder.trigger]}
+          </Text>
+        </View>
+      </Pressable>
       <Pressable
         onPress={() => onDelete?.(reminder.id)}
         hitSlop={12}

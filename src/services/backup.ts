@@ -20,6 +20,8 @@ type BackupSettings = {
   themeMode: ThemeMode;
   units: Units;
   notificationsEnabled: boolean;
+  notificationSound: boolean;
+  notificationVibration: boolean;
 };
 
 type BackupPayload = {
@@ -41,14 +43,15 @@ export class BackupImportError extends Error {}
 export async function exportData(): Promise<void> {
   const [places, reminders] = await Promise.all([getAllPlaces(), getAllReminders()]);
   const { mode: themeMode } = useThemeStore.getState();
-  const { units, notificationsEnabled } = useSettingsStore.getState();
+  const { units, notificationsEnabled, notificationSound, notificationVibration } =
+    useSettingsStore.getState();
 
   const payload: BackupPayload = {
     version: BACKUP_VERSION,
     exportedAt: new Date().toISOString(),
     places,
     reminders,
-    settings: { themeMode, units, notificationsEnabled },
+    settings: { themeMode, units, notificationsEnabled, notificationSound, notificationVibration },
   };
 
   const file = new File(Paths.cache, BACKUP_FILE_NAME);
@@ -126,6 +129,8 @@ export async function importData(): Promise<boolean> {
       title: reminder.title,
       trigger: reminder.trigger,
       enabled: reminder.enabled,
+      sound: reminder.sound ?? "default",
+      vibration: reminder.vibration ?? "default",
     };
     await insertReminder(newReminder);
   }
@@ -136,6 +141,12 @@ export async function importData(): Promise<boolean> {
     if (settings.units) useSettingsStore.getState().setUnits(settings.units);
     if (typeof settings.notificationsEnabled === "boolean") {
       useSettingsStore.getState().setNotificationsEnabled(settings.notificationsEnabled);
+    }
+    if (typeof settings.notificationSound === "boolean") {
+      useSettingsStore.getState().setNotificationSound(settings.notificationSound);
+    }
+    if (typeof settings.notificationVibration === "boolean") {
+      useSettingsStore.getState().setNotificationVibration(settings.notificationVibration);
     }
   }
 

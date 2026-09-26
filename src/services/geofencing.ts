@@ -7,13 +7,18 @@ import { getActiveRemindersForTrigger, getGeofenceRegions, type GeofenceRegion }
 import { logException, logGeofence, logNotification } from "@/services/logger";
 import { LocationPermissionDeniedError } from "@/services/location";
 import {
-  ensureNotificationChannel,
+  ensureNotificationChannels,
   presentReminderNotification,
   requestNotificationPermission,
 } from "@/services/notifications";
-import { getNotificationsEnabled } from "@/store/settingsStore";
+import {
+  getNotificationSound,
+  getNotificationVibration,
+  getNotificationsEnabled,
+} from "@/store/settingsStore";
 import type { ReminderTrigger } from "@/types/reminder";
 import { distanceMeters } from "@/utils/geo";
+import { resolveOverride } from "@/utils/notificationPrefs";
 
 /** Background task name — must match between `defineTask` and start/stopGeofencingAsync. */
 export const GEOFENCE_TASK_NAME = "atplace-geofence-task";
@@ -149,9 +154,18 @@ TaskManager.defineTask<GeofenceTaskData>(GEOFENCE_TASK_NAME, async ({ data, erro
       return;
     }
 
+    // Resolved once per batch (issue #51): the global defaults apply to every
+    // reminder still set to "Use Default" for that setting.
+    const [globalSound, globalVibration] = await Promise.all([
+      getNotificationSound(),
+      getNotificationVibration(),
+    ]);
+
     const reminders = await getActiveRemindersForTrigger(placeId, trigger);
     for (const reminder of reminders) {
-      await presentReminderNotification(reminder.placeName, reminder.title, trigger);
+      const sound = resolveOverride(reminder.sound, globalSound);
+      const vibration = resolveOverride(reminder.vibration, globalVibration);
+      await presentReminderNotification(reminder.placeName, reminder.title, trigger, sound, vibration);
       await logNotification(`Presented "${reminder.title}"`, reminder.placeName);
       // Persist a notification-inbox row alongside the OS notification
       // (issue #40), so the in-app Notifications screen has a record of
@@ -190,7 +204,7 @@ export async function requestGeofencingPermissions(): Promise<void> {
   }
 
   await requestNotificationPermission();
-  await ensureNotificationChannel();
+  await ensureNotificationChannels();
 }
 
 /**

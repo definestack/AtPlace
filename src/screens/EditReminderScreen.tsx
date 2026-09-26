@@ -7,44 +7,44 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { ItemIcon } from "@/components/ItemIcon";
 import { NotificationOverrideControl } from "@/components/NotificationOverrideControl";
 import { ScreenHeader } from "@/components/ScreenHeader";
-import { TipBanner } from "@/components/TipBanner";
 import { TriggerOptionCard } from "@/components/TriggerOptionCard";
 import { usePlacesStore } from "@/store/placesStore";
 import { useRemindersStore } from "@/store/remindersStore";
-import { useSettingsStore } from "@/store/settingsStore";
 import { colors } from "@/theme/colors";
 import type { NotificationOverride, ReminderTrigger } from "@/types/reminder";
-import { generateId } from "@/utils/id";
 
 /**
- * Add Reminder screen (mockup #6) — second step of the Add Reminder flow.
- * Reached from `SelectReminderPlaceScreen` with `placeId` as a param. Lets
- * the user enter reminder text and pick a trigger, then persists it (issue #8).
+ * Edit Reminder screen (issue #51) — reached by tapping a reminder on the
+ * Home screen's Reminders tab. Lets the user change the reminder text,
+ * trigger, and per-reminder Sound/Vibration overrides. Mirrors
+ * `AddReminderScreen`'s layout and validation, but updates an existing
+ * reminder instead of creating one.
  */
-export function AddReminderScreen() {
+export function EditReminderScreen() {
   const router = useRouter();
   const { colorScheme } = useColorScheme();
-  const params = useLocalSearchParams<{ placeId?: string }>();
+  const params = useLocalSearchParams<{ reminderId?: string }>();
 
-  const place = usePlacesStore((state) => state.places.find((p) => p.id === params.placeId));
-  const hydratePlaces = usePlacesStore((state) => state.hydrate);
-  const addReminder = useRemindersStore((state) => state.addReminder);
-  const reminderTipDismissed = useSettingsStore((state) => state.reminderTipDismissed);
-  const setReminderTipDismissed = useSettingsStore((state) => state.setReminderTipDismissed);
+  const reminder = useRemindersStore((state) =>
+    state.reminders.find((r) => r.id === params.reminderId),
+  );
+  const updateReminder = useRemindersStore((state) => state.updateReminder);
+  // Only used for the place's address line — the reminder itself already
+  // carries placeName/placeIcon/placeColor via the repository join.
+  const place = usePlacesStore((state) => state.places.find((p) => p.id === reminder?.placeId));
 
-  const [title, setTitle] = useState("");
-  const [trigger, setTrigger] = useState<ReminderTrigger>("arrive");
-  const [sound, setSound] = useState<NotificationOverride>("default");
-  const [vibration, setVibration] = useState<NotificationOverride>("default");
+  const [title, setTitle] = useState(reminder?.title ?? "");
+  const [trigger, setTrigger] = useState<ReminderTrigger>(reminder?.trigger ?? "arrive");
+  const [sound, setSound] = useState<NotificationOverride>(reminder?.sound ?? "default");
+  const [vibration, setVibration] = useState<NotificationOverride>(
+    reminder?.vibration ?? "default",
+  );
   const [saving, setSaving] = useState(false);
 
   const textColor = colorScheme === "dark" ? colors.white : colors.brand;
 
   const handleSave = async () => {
-    if (!place) {
-      Alert.alert("No place selected", "Please choose a place for this reminder.");
-      return;
-    }
+    if (!reminder) return;
     if (!title.trim()) {
       Alert.alert("Reminder text required", "Please describe what you want to be reminded about.");
       return;
@@ -52,20 +52,8 @@ export function AddReminderScreen() {
 
     setSaving(true);
     try {
-      await addReminder({
-        id: generateId(),
-        placeId: place.id,
-        title: title.trim(),
-        trigger,
-        enabled: true,
-        sound,
-        vibration,
-      });
-      // Refresh places so the place's reminder count reflects the new reminder.
-      await hydratePlaces();
-      Alert.alert("Reminder saved", `${title.trim()} has been added to your reminders.`, [
-        { text: "OK", onPress: () => router.dismissAll() },
-      ]);
+      await updateReminder({ ...reminder, title: title.trim(), trigger, sound, vibration });
+      router.back();
     } catch {
       Alert.alert("Couldn't save reminder", "Something went wrong while saving. Please try again.");
     } finally {
@@ -73,13 +61,13 @@ export function AddReminderScreen() {
     }
   };
 
-  if (!place) {
+  if (!reminder) {
     return (
       <SafeAreaView className="flex-1 bg-cream dark:bg-brand-deep" edges={["top", "left", "right"]}>
-        <ScreenHeader title="Add Reminder" onBack={() => router.back()} />
+        <ScreenHeader title="Edit Reminder" onBack={() => router.back()} />
         <View className="flex-1 items-center justify-center px-8">
           <Text className="text-center text-base text-muted dark:text-mutedDark">
-            That place could no longer be found.
+            That reminder could no longer be found.
           </Text>
         </View>
       </SafeAreaView>
@@ -88,23 +76,15 @@ export function AddReminderScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-cream dark:bg-brand-deep" edges={["top", "left", "right"]}>
-      <ScreenHeader title="Add Reminder" onBack={() => router.back()} />
+      <ScreenHeader title="Edit Reminder" onBack={() => router.back()} />
       <ScrollView contentContainerClassName="px-6 pt-6 pb-8" keyboardShouldPersistTaps="handled">
-        {!reminderTipDismissed ? (
-          <View className="mb-4">
-            <TipBanner
-              icon="notifications-outline"
-              text="AtPlace will notify you when you arrive at the selected place."
-              onDismiss={() => setReminderTipDismissed(true)}
-            />
-          </View>
-        ) : null}
-
         <View className="mb-6 flex-row items-center gap-3 rounded-xl bg-white px-4 py-4 dark:bg-surfaceDark">
-          <ItemIcon icon={place.icon} color={place.color} />
+          <ItemIcon icon={reminder.placeIcon} color={reminder.placeColor} />
           <View className="flex-1">
-            <Text className="text-base font-semibold text-brand dark:text-white">{place.name}</Text>
-            {place.address ? (
+            <Text className="text-base font-semibold text-brand dark:text-white">
+              {reminder.placeName}
+            </Text>
+            {place?.address ? (
               <Text className="text-sm text-muted dark:text-mutedDark">{place.address}</Text>
             ) : null}
           </View>
