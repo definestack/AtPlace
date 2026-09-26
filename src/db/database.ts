@@ -85,6 +85,15 @@ const migrations: Migration[] = [
       CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at);
     `);
   },
+  // v6: per-reminder notification sound/vibration overrides (issue #51).
+  // Additive columns defaulted to 'default' (inherit the global Settings
+  // toggle), so existing reminders keep their current behavior unchanged.
+  async (db) => {
+    await db.execAsync(`
+      ALTER TABLE reminders ADD COLUMN sound_override TEXT NOT NULL DEFAULT 'default';
+      ALTER TABLE reminders ADD COLUMN vibration_override TEXT NOT NULL DEFAULT 'default';
+    `);
+  },
 ];
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;

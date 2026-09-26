@@ -160,7 +160,14 @@ export function HomeScreen() {
             sections={reminderSections}
             keyExtractor={(reminder) => reminder.id}
             renderItem={({ item }) => (
-              <ReminderRow reminder={item} onToggle={toggleReminder} onDelete={handleDeleteReminder} />
+              <ReminderRow
+                reminder={item}
+                onToggle={toggleReminder}
+                onDelete={handleDeleteReminder}
+                onPress={(id) =>
+                  router.push({ pathname: "/edit-reminder", params: { reminderId: id } })
+                }
+              />
             )}
             renderSectionHeader={({ section }) => (
               <ReminderSectionHeader title={section.placeName} />
