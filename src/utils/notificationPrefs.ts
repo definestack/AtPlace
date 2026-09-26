@@ -17,3 +17,21 @@ export function resolveOverride(override: NotificationOverride, globalValue: boo
       return globalValue;
   }
 }
+
+/**
+ * Human-readable summary of a reminder's Sound/Vibration overrides, shown on
+ * the collapsed Notification row (issue #59). When both are left at their
+ * default, calls this out explicitly; otherwise names each override so the
+ * user can see what's customized without expanding the section.
+ */
+export function describeNotificationSummary(
+  sound: NotificationOverride,
+  vibration: NotificationOverride,
+): string {
+  if (sound === "default" && vibration === "default") {
+    return "Using default sound and vibration";
+  }
+  const label = (override: NotificationOverride) =>
+    override === "default" ? "default" : override === "on" ? "on" : "off";
+  return `Sound ${label(sound)} · Vibration ${label(vibration)}`;
+}

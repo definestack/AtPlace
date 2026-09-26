@@ -63,11 +63,13 @@ export default function TabsLayout() {
         options={{ title: "Add" }}
         listeners={{
           tabPress: (event) => {
-            // The Add tab is a stub route; opening the real Add Place flow
-            // (issue #5) as a pushed screen matches the mockup (back arrow,
-            // no tab bar) instead of rendering inside the tab bar.
+            // The Add tab is a stub route; opening the real Add Reminder flow
+            // (issue #58) as a pushed screen matches the mockup (back arrow,
+            // no tab bar) instead of rendering inside the tab bar. Reminders
+            // are the primary thing users create, so `+` starts there rather
+            // than Add Place (still reachable from Home > Places).
             event.preventDefault();
-            router.push("/add-place");
+            router.push("/add-reminder");
           },
         }}
       />

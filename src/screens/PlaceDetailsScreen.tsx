@@ -8,6 +8,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { ItemIcon } from "@/components/ItemIcon";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { usePlacesStore } from "@/store/placesStore";
+import { useReminderFlowStore } from "@/store/reminderFlowStore";
 import { colors } from "@/theme/colors";
 import { generateId } from "@/utils/id";
 
@@ -36,6 +37,10 @@ export function PlaceDetailsScreen() {
   const [saving, setSaving] = useState(false);
 
   const addPlace = usePlacesStore((state) => state.addPlace);
+  const addPlaceForReminder = useReminderFlowStore((state) => state.addPlaceForReminder);
+  const completeAddPlaceForReminder = useReminderFlowStore(
+    (state) => state.completeAddPlaceForReminder,
+  );
   const textColor = colorScheme === "dark" ? colors.white : colors.brand;
 
   const handleChangeLocation = () => {
@@ -65,8 +70,9 @@ export function PlaceDetailsScreen() {
 
     setSaving(true);
     try {
+      const id = generateId();
       await addPlace({
-        id: generateId(),
+        id,
         name: name.trim(),
         address: address.trim() || undefined,
         latitude,
@@ -75,7 +81,19 @@ export function PlaceDetailsScreen() {
         color: DEFAULT_PLACE_COLOR,
       });
       Alert.alert("Place saved", `${name.trim()} has been added to your places.`, [
-        { text: "OK", onPress: () => router.dismissAll() },
+        {
+          text: "OK",
+          onPress: () => {
+            if (addPlaceForReminder) {
+              // Hand the new place back to the reminder flow's place picker
+              // instead of dismissing everything to the tabs (issue #58).
+              completeAddPlaceForReminder(id);
+              router.dismissTo("/add-reminder");
+            } else {
+              router.dismissAll();
+            }
+          },
+        },
       ]);
     } catch {
       Alert.alert("Couldn't save place", "Something went wrong while saving. Please try again.");

@@ -11,6 +11,7 @@ import { ScreenHeader } from "@/components/ScreenHeader";
 import { SegmentedTabs } from "@/components/SegmentedTabs";
 import { TipBanner } from "@/components/TipBanner";
 import { usePlacesStore } from "@/store/placesStore";
+import { useReminderFlowStore } from "@/store/reminderFlowStore";
 import { useRemindersStore } from "@/store/remindersStore";
 import { useSettingsStore } from "@/store/settingsStore";
 import type { Place } from "@/types/place";
@@ -34,6 +35,16 @@ const TAB_OPTIONS: [
  */
 export function HomeScreen() {
   const router = useRouter();
+  const cancelAddPlaceForReminder = useReminderFlowStore(
+    (state) => state.cancelAddPlaceForReminder,
+  );
+  // Add Place is independently accessible from here (issue #58); clear any
+  // stale reminder-flow flag first so it always returns to the tabs rather
+  // than being mistaken for a place created inside the reminder flow.
+  const handleAddPlace = () => {
+    cancelAddPlaceForReminder();
+    router.push("/add-place");
+  };
   // Notifications screen rows deep-link here with `?tab=reminders` (issue
   // #40) so tapping a notification lands on the reminder it was about,
   // rather than the default Places tab.
@@ -142,13 +153,13 @@ export function HomeScreen() {
                   title="Welcome to AtPlace"
                   subtitle="Create reminders that come alive when you reach a place. Start by saving a place you visit frequently."
                   ctaLabel="+ Add a Place"
-                  onCtaPress={() => router.push("/add-place")}
+                  onCtaPress={handleAddPlace}
                 />
               ) : null
             }
           />
           <Pressable
-            onPress={() => router.push("/add-place")}
+            onPress={handleAddPlace}
             className="mx-6 mb-4 items-center rounded-xl bg-brand py-4 dark:bg-brand-light"
           >
             <Text className="text-base font-semibold text-white">+ Add Place</Text>
@@ -182,7 +193,7 @@ export function HomeScreen() {
                     title="Add a place first"
                     subtitle="Reminders trigger when you arrive at a saved place. Add a place to get started."
                     ctaLabel="+ Add a Place"
-                    onCtaPress={() => router.push("/add-place")}
+                    onCtaPress={handleAddPlace}
                   />
                 ) : places.length === 1 ? (
                   <EmptyState
