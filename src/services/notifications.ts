@@ -112,3 +112,24 @@ export async function presentReminderNotification(
     trigger: { channelId: channelFor(sound, vibration) },
   });
 }
+
+/**
+ * Presents a clearly-labeled test notification via the same channel-based
+ * delivery mechanism used for real reminders (issue #57), so a developer can
+ * verify sound/vibration behavior without waiting for a geofence arrival.
+ *
+ * `sound`/`vibration` are the already-resolved global preference booleans
+ * (see `getNotificationSound`/`getNotificationVibration` in `settingsStore`)
+ * so the test reflects the user's current settings.
+ */
+export async function presentTestNotification(sound: boolean, vibration: boolean): Promise<void> {
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: "Test Notification",
+      body: "This is a test notification.",
+      sound: sound ? "default" : false,
+      data: { sound },
+    },
+    trigger: { channelId: channelFor(sound, vibration) },
+  });
+}

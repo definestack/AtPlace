@@ -1,9 +1,14 @@
 import { useRouter } from "expo-router";
-import { Text, View } from "react-native";
+import { Alert, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { SettingsRow } from "@/components/SettingsRow";
-import { useSettingsStore } from "@/store/settingsStore";
+import {
+  ensureNotificationChannels,
+  presentTestNotification,
+  requestNotificationPermission,
+} from "@/services/notifications";
+import { getNotificationSound, getNotificationVibration, useSettingsStore } from "@/store/settingsStore";
 import { useThemeStore } from "@/store/themeStore";
 
 const THEME_LABEL: Record<"light" | "dark" | "system", string> = {
@@ -29,6 +34,22 @@ export function SettingsScreen() {
   const notificationsEnabled = useSettingsStore((state) => state.notificationsEnabled);
   const developerModeEnabled = useSettingsStore((state) => state.developerModeEnabled);
   const setDeveloperModeEnabled = useSettingsStore((state) => state.setDeveloperModeEnabled);
+
+  const handleTestNotification = async () => {
+    try {
+      const granted = await requestNotificationPermission();
+      if (!granted) {
+        Alert.alert("Notifications disabled", "Enable notifications for AtPlace in system settings to send a test notification.");
+        return;
+      }
+
+      await ensureNotificationChannels();
+      const [sound, vibration] = await Promise.all([getNotificationSound(), getNotificationVibration()]);
+      await presentTestNotification(sound, vibration);
+    } catch {
+      Alert.alert("Couldn't send test notification", "Something went wrong. Please try again.");
+    }
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-cream dark:bg-brand-deep" edges={["top", "left", "right"]}>
@@ -74,6 +95,7 @@ export function SettingsScreen() {
               accent
               onPress={() => router.push("/settings-logs")}
             />
+            <SettingsRow icon="flask-outline" label="Test Notification" accent onPress={handleTestNotification} />
           </>
         ) : null}
         <SettingsRow
