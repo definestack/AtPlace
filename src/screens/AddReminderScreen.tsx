@@ -6,6 +6,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ItemIcon } from "@/components/ItemIcon";
 import { NotificationOverrideControl } from "@/components/NotificationOverrideControl";
+import { ReminderRepeatControl } from "@/components/ReminderRepeatControl";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { TipBanner } from "@/components/TipBanner";
 import { TriggerOptionCard } from "@/components/TriggerOptionCard";
@@ -13,7 +14,7 @@ import { usePlacesStore } from "@/store/placesStore";
 import { useRemindersStore } from "@/store/remindersStore";
 import { useSettingsStore } from "@/store/settingsStore";
 import { colors } from "@/theme/colors";
-import type { NotificationOverride, ReminderTrigger } from "@/types/reminder";
+import type { NotificationOverride, ReminderRepeat, ReminderTrigger } from "@/types/reminder";
 import { generateId } from "@/utils/id";
 
 /**
@@ -36,6 +37,7 @@ export function AddReminderScreen() {
   const [trigger, setTrigger] = useState<ReminderTrigger>("arrive");
   const [sound, setSound] = useState<NotificationOverride>("default");
   const [vibration, setVibration] = useState<NotificationOverride>("default");
+  const [repeat, setRepeat] = useState<ReminderRepeat>("once");
   const [saving, setSaving] = useState(false);
 
   const textColor = colorScheme === "dark" ? colors.white : colors.brand;
@@ -60,6 +62,7 @@ export function AddReminderScreen() {
         enabled: true,
         sound,
         vibration,
+        repeat,
       });
       // Refresh places so the place's reminder count reflects the new reminder.
       await hydratePlaces();
@@ -138,6 +141,8 @@ export function AddReminderScreen() {
             onPress={() => setTrigger("leave")}
           />
         </View>
+
+        <ReminderRepeatControl value={repeat} onChange={setRepeat} />
 
         <NotificationOverrideControl label="Sound" value={sound} onChange={setSound} />
         <NotificationOverrideControl label="Vibration" value={vibration} onChange={setVibration} />

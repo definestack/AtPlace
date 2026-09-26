@@ -6,12 +6,13 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ItemIcon } from "@/components/ItemIcon";
 import { NotificationOverrideControl } from "@/components/NotificationOverrideControl";
+import { ReminderRepeatControl } from "@/components/ReminderRepeatControl";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { TriggerOptionCard } from "@/components/TriggerOptionCard";
 import { usePlacesStore } from "@/store/placesStore";
 import { useRemindersStore } from "@/store/remindersStore";
 import { colors } from "@/theme/colors";
-import type { NotificationOverride, ReminderTrigger } from "@/types/reminder";
+import type { NotificationOverride, ReminderRepeat, ReminderTrigger } from "@/types/reminder";
 
 /**
  * Edit Reminder screen (issue #51) — reached by tapping a reminder on the
@@ -39,6 +40,7 @@ export function EditReminderScreen() {
   const [vibration, setVibration] = useState<NotificationOverride>(
     reminder?.vibration ?? "default",
   );
+  const [repeat, setRepeat] = useState<ReminderRepeat>(reminder?.repeat ?? "once");
   const [saving, setSaving] = useState(false);
 
   const textColor = colorScheme === "dark" ? colors.white : colors.brand;
@@ -52,7 +54,7 @@ export function EditReminderScreen() {
 
     setSaving(true);
     try {
-      await updateReminder({ ...reminder, title: title.trim(), trigger, sound, vibration });
+      await updateReminder({ ...reminder, title: title.trim(), trigger, sound, vibration, repeat });
       router.back();
     } catch {
       Alert.alert("Couldn't save reminder", "Something went wrong while saving. Please try again.");
@@ -118,6 +120,8 @@ export function EditReminderScreen() {
             onPress={() => setTrigger("leave")}
           />
         </View>
+
+        <ReminderRepeatControl value={repeat} onChange={setRepeat} />
 
         <NotificationOverrideControl label="Sound" value={sound} onChange={setSound} />
         <NotificationOverrideControl label="Vibration" value={vibration} onChange={setVibration} />

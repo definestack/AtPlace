@@ -94,6 +94,17 @@ const migrations: Migration[] = [
       ALTER TABLE reminders ADD COLUMN vibration_override TEXT NOT NULL DEFAULT 'default';
     `);
   },
+  // v7: one-time vs. repeating reminders (issue #53). Additive column
+  // defaulted to 'repeating' — every existing reminder today re-fires on
+  // every trigger, so defaulting to 'once' would silently auto-disable them
+  // after their next trigger. New reminders explicitly write 'once' (the
+  // ticket's default) via `insertReminder`, so this DEFAULT only applies to
+  // rows that existed before this migration ran.
+  async (db) => {
+    await db.execAsync(`
+      ALTER TABLE reminders ADD COLUMN repeat TEXT NOT NULL DEFAULT 'repeating';
+    `);
+  },
 ];
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;

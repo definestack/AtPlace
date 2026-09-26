@@ -1,6 +1,12 @@
 import { getDatabase } from "@/db/database";
 import type { PlaceColor, PlaceIconName } from "@/types/place";
-import type { NewReminder, NotificationOverride, Reminder, ReminderTrigger } from "@/types/reminder";
+import type {
+  NewReminder,
+  NotificationOverride,
+  Reminder,
+  ReminderRepeat,
+  ReminderTrigger,
+} from "@/types/reminder";
 
 /** Raw row shape as read back via a join with `places`. */
 type ReminderRowRecord = {
@@ -11,6 +17,7 @@ type ReminderRowRecord = {
   enabled: number;
   sound_override: string;
   vibration_override: string;
+  repeat: string;
   place_name: string;
   place_icon: string;
   place_color: string;
@@ -25,6 +32,7 @@ function toReminder(row: ReminderRowRecord): Reminder {
     enabled: row.enabled === 1,
     sound: row.sound_override as NotificationOverride,
     vibration: row.vibration_override as NotificationOverride,
+    repeat: row.repeat as ReminderRepeat,
     placeName: row.place_name,
     placeIcon: row.place_icon as PlaceIconName,
     placeColor: row.place_color as PlaceColor,
@@ -35,8 +43,8 @@ function toReminder(row: ReminderRowRecord): Reminder {
 export async function insertReminder(reminder: NewReminder): Promise<void> {
   const db = await getDatabase();
   await db.runAsync(
-    `INSERT INTO reminders (id, place_id, title, trigger, enabled, sound_override, vibration_override, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO reminders (id, place_id, title, trigger, enabled, sound_override, vibration_override, repeat, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     reminder.id,
     reminder.placeId,
     reminder.title,
@@ -44,6 +52,7 @@ export async function insertReminder(reminder: NewReminder): Promise<void> {
     reminder.enabled ? 1 : 0,
     reminder.sound,
     reminder.vibration,
+    reminder.repeat,
     Date.now(),
   );
 }
@@ -52,7 +61,7 @@ export async function insertReminder(reminder: NewReminder): Promise<void> {
 export async function getAllReminders(): Promise<Reminder[]> {
   const db = await getDatabase();
   const rows = await db.getAllAsync<ReminderRowRecord>(
-    `SELECT r.id, r.place_id, r.title, r.trigger, r.enabled, r.sound_override, r.vibration_override,
+    `SELECT r.id, r.place_id, r.title, r.trigger, r.enabled, r.sound_override, r.vibration_override, r.repeat,
             p.name AS place_name, p.icon AS place_icon, p.color AS place_color
      FROM reminders r
      JOIN places p ON p.id = r.place_id
@@ -72,12 +81,13 @@ export async function updateReminder(reminder: Reminder): Promise<void> {
   const db = await getDatabase();
   await db.runAsync(
     `UPDATE reminders
-     SET title = ?, trigger = ?, sound_override = ?, vibration_override = ?
+     SET title = ?, trigger = ?, sound_override = ?, vibration_override = ?, repeat = ?
      WHERE id = ?`,
     reminder.title,
     reminder.trigger,
     reminder.sound,
     reminder.vibration,
+    reminder.repeat,
     reminder.id,
   );
 }
@@ -164,6 +174,7 @@ export type ActiveReminderSummary = {
   placeColor: PlaceColor;
   sound: NotificationOverride;
   vibration: NotificationOverride;
+  repeat: ReminderRepeat;
 };
 
 /**
@@ -184,9 +195,10 @@ export async function getActiveRemindersForTrigger(
     place_color: string;
     sound_override: string;
     vibration_override: string;
+    repeat: string;
   }>(
     `SELECT r.id AS reminder_id, r.title, p.name AS place_name, p.icon AS place_icon, p.color AS place_color,
-            r.sound_override, r.vibration_override
+            r.sound_override, r.vibration_override, r.repeat
      FROM reminders r
      JOIN places p ON p.id = r.place_id
      WHERE r.place_id = ? AND r.trigger = ? AND r.enabled = 1`,
@@ -201,5 +213,6 @@ export async function getActiveRemindersForTrigger(
     placeColor: row.place_color as PlaceColor,
     sound: row.sound_override as NotificationOverride,
     vibration: row.vibration_override as NotificationOverride,
+    repeat: row.repeat as ReminderRepeat,
   }));
 }
