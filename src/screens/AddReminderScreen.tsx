@@ -5,7 +5,7 @@ import { Alert, Pressable, ScrollView, Text, TextInput, View } from "react-nativ
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ItemIcon } from "@/components/ItemIcon";
-import { NotificationOverrideControl } from "@/components/NotificationOverrideControl";
+import { NotificationSection } from "@/components/NotificationSection";
 import { ReminderRepeatControl } from "@/components/ReminderRepeatControl";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { TipBanner } from "@/components/TipBanner";
@@ -144,8 +144,12 @@ export function AddReminderScreen() {
 
         <ReminderRepeatControl value={repeat} onChange={setRepeat} />
 
-        <NotificationOverrideControl label="Sound" value={sound} onChange={setSound} />
-        <NotificationOverrideControl label="Vibration" value={vibration} onChange={setVibration} />
+        <NotificationSection
+          sound={sound}
+          vibration={vibration}
+          onSoundChange={setSound}
+          onVibrationChange={setVibration}
+        />
 
         <Pressable
           onPress={handleSave}
