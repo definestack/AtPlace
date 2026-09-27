@@ -10,7 +10,9 @@
  * transparent glyph silhouette for `foreground`/`monochrome`, composited by
  * the OS over the existing solid `background` gradient), and the in-app logo
  * (`splash-icon.png`) needs the tile cropped out with its rounded corners
- * made transparent so it sits cleanly on both light and dark screens.
+ * made transparent so it sits cleanly on both light and dark screens. The
+ * glyph is scaled so its padding inside the launcher's visible mask matches
+ * its padding inside the tile in the master.
  *
  * Run with: node scripts/generate-icons.mjs
  */
@@ -25,10 +27,14 @@ const OUT_DIR = path.join(ROOT, "assets/images");
 // A pixel counts as "background white" (vs. the saturated blue tile or its
 // glyph) below this per-channel threshold.
 const WHITE_THRESHOLD = 240;
-// Fraction of the target canvas the glyph's longest side should occupy,
-// matching the safe-zone sizing of the previous foreground/monochrome
-// layers (~0.62-0.63) and Android's adaptive-icon safe-zone guidance.
-const GLYPH_SAFE_ZONE_RATIO = 0.62;
+// Adaptive icon layers are 108dp, but launchers only show the central 72dp
+// (masked to a circle, squircle, etc.). The glyph is sized to take the same
+// share of that visible viewport as it does of the tile in the master, so
+// the launcher icon keeps the design's padding instead of touching the mask.
+const ADAPTIVE_VISIBLE_RATIO = 72 / 108;
+// Upper bound for the glyph: 90% of Android's 66dp safe zone, which is
+// guaranteed to survive every launcher mask shape.
+const MAX_GLYPH_RATIO = (66 / 108) * 0.9;
 
 function isNearWhite(r, g, b) {
   return r > WHITE_THRESHOLD && g > WHITE_THRESHOLD && b > WHITE_THRESHOLD;
@@ -128,15 +134,20 @@ function floodFillOutsideMask(img) {
   return dilated;
 }
 
+// Connected white regions smaller than this fraction of the largest one are
+// treated as anti-aliasing noise; larger ones (e.g. a detached bell clapper)
+// are part of the glyph.
+const MIN_COMPONENT_FRACTION = 0.01;
+
 /**
- * Keeps only the largest 8-connected component of `predicate`-matching
- * pixels and clears the rest. Guards against stray specks/seams in the
- * source master (isolated pixel noise) leaking into the extracted glyph.
+ * Keeps the significant 8-connected components of matching pixels (see
+ * `MIN_COMPONENT_FRACTION`) and clears the rest. Guards against stray
+ * specks/seams in the source master leaking into the extracted glyph while
+ * still keeping glyphs made of several separate shapes.
  */
-function keepLargestComponent(width, height, matches) {
+function keepSignificantComponents(width, height, matches) {
   const labels = new Int32Array(width * height).fill(-1);
-  let bestLabel = -1;
-  let bestSize = 0;
+  const sizes = [];
   let nextLabel = 0;
 
   for (let y = 0; y < height; y++) {
@@ -161,15 +172,13 @@ function keepLargestComponent(width, height, matches) {
           }
         }
       }
-      if (size > bestSize) {
-        bestSize = size;
-        bestLabel = label;
-      }
+      sizes[label] = size;
     }
   }
 
+  const minSize = sizes.reduce((max, size) => Math.max(max, size), 0) * MIN_COMPONENT_FRACTION;
   const kept = new Uint8Array(width * height);
-  for (let i = 0; i < kept.length; i++) kept[i] = labels[i] === bestLabel ? 1 : 0;
+  for (let i = 0; i < kept.length; i++) kept[i] = labels[i] >= 0 && sizes[labels[i]] >= minSize ? 1 : 0;
   return kept;
 }
 
@@ -182,6 +191,18 @@ function squareTileCrop(master) {
   const x = Math.round(centerX - size / 2);
   const y = Math.round(centerY - size / 2);
   return master.clone().crop({ x, y, w: size, h: size });
+}
+
+/** Centers `img` on a white square canvas sized to its longest side. */
+function padToSquare(img) {
+  const size = Math.max(img.bitmap.width, img.bitmap.height);
+  const canvas = new Jimp({ width: size, height: size, color: 0xffffffff });
+  canvas.composite(
+    img,
+    Math.round((size - img.bitmap.width) / 2),
+    Math.round((size - img.bitmap.height) / 2),
+  );
+  return canvas;
 }
 
 /** Tile crop with the outside-the-rounded-corners background made transparent. */
@@ -218,9 +239,9 @@ function extractGlyphSilhouette(tileCrop) {
       candidate[mIdx] = !outsideMask[mIdx] && isNearWhite(data[idx], data[idx + 1], data[idx + 2]) ? 1 : 0;
     }
   }
-  // Keep only the largest connected white region (the actual bell/pin
-  // glyph) — discards any stray anti-aliasing specks elsewhere in the tile.
-  const glyphMask = keepLargestComponent(width, height, candidate);
+  // Keep the glyph's white regions (bell body, clapper) — discards any stray
+  // anti-aliasing specks elsewhere in the tile.
+  const glyphMask = keepSignificantComponents(width, height, candidate);
 
   const glyph = tileCrop.clone();
   const gd = glyph.bitmap.data;
@@ -252,16 +273,18 @@ async function composeGlyphOnCanvas(glyph, canvasSize, ratio) {
 async function main() {
   const master = await Jimp.read(MASTER_PATH);
 
-  // icon.png / favicon.png: straight resizes of the full master, preserving
-  // its existing white margin convention (same as the assets they replace).
-  const icon = master.clone().resize({ w: 1024, h: 1024 });
+  // icon.png / favicon.png: the full master (keeping its white margin),
+  // padded to a square first so a non-square master isn't stretched.
+  const squareMaster = padToSquare(master);
+  const icon = squareMaster.clone().resize({ w: 1024, h: 1024 });
   await icon.write(path.join(OUT_DIR, "icon.png"));
 
-  const favicon = master.clone().resize({ w: 48, h: 48 });
+  const favicon = squareMaster.clone().resize({ w: 48, h: 48 });
   await favicon.write(path.join(OUT_DIR, "favicon.png"));
 
   // On-screen logo tile: the tile only, rounded corners made transparent.
   const tileCrop = squareTileCrop(master);
+  const tileBox = boundingBox(master, (r, g, b) => !isNearWhite(r, g, b));
   const splashIcon = tileWithTransparentCorners(tileCrop).resize({ w: 512, h: 512 });
   await splashIcon.write(path.join(OUT_DIR, "splash-icon.png"));
 
@@ -269,11 +292,14 @@ async function main() {
   // centered and scaled into the safe zone. `android-icon-background.png`
   // is intentionally left untouched (still the plain blue gradient).
   const glyph = extractGlyphSilhouette(tileCrop);
+  const glyphToTile =
+    Math.max(glyph.bitmap.width, glyph.bitmap.height) / Math.max(tileBox.width, tileBox.height);
+  const glyphRatio = Math.min(glyphToTile * ADAPTIVE_VISIBLE_RATIO, MAX_GLYPH_RATIO);
 
-  const foreground = await composeGlyphOnCanvas(glyph, 512, GLYPH_SAFE_ZONE_RATIO);
+  const foreground = await composeGlyphOnCanvas(glyph, 512, glyphRatio);
   await foreground.write(path.join(OUT_DIR, "android-icon-foreground.png"));
 
-  const monochrome = await composeGlyphOnCanvas(glyph, 432, GLYPH_SAFE_ZONE_RATIO);
+  const monochrome = await composeGlyphOnCanvas(glyph, 432, glyphRatio);
   await monochrome.write(path.join(OUT_DIR, "android-icon-monochrome.png"));
 
   console.log("Generated icon.png, favicon.png, splash-icon.png, android-icon-foreground.png, android-icon-monochrome.png");
