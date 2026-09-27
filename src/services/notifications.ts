@@ -27,10 +27,18 @@ Notifications.setNotificationHandler({
  * sound-on/off x vibration-on/off gets its own channel, selected at delivery
  * time via `channelFor`. iOS ignores channels entirely.
  */
-export const REMINDER_CHANNEL_SOUND_VIBRATION = "atplace-reminders";
+export const REMINDER_CHANNEL_SOUND_VIBRATION = "atplace-reminders-sound-vibration";
 export const REMINDER_CHANNEL_SOUND_ONLY = "atplace-reminders-sound";
 export const REMINDER_CHANNEL_VIBRATION_ONLY = "atplace-reminders-vibration";
 export const REMINDER_CHANNEL_SILENT = "atplace-reminders-silent";
+
+/**
+ * Channel created in #37 with default settings (no vibration). Android
+ * ignores sound/vibration changes to an existing channel, so upgraded installs
+ * kept a non-vibrating channel; it is deleted and replaced by
+ * `REMINDER_CHANNEL_SOUND_VIBRATION`.
+ */
+const LEGACY_REMINDER_CHANNEL = "atplace-reminders";
 
 /** A short, noticeable vibration pattern for channels with vibration enabled. */
 const VIBRATION_PATTERN = [0, 250, 250, 250];
@@ -44,9 +52,10 @@ export function channelFor(sound: boolean, vibration: boolean): string {
 }
 
 /**
- * Creates (or updates) all four reminder notification channels. Safe to call
- * on every launch — `setNotificationChannelAsync` upserts by id — and is a
- * no-op on platforms without channel support (iOS/web).
+ * Creates all four reminder notification channels and removes the legacy
+ * one. Safe to call on every launch, and a no-op on platforms without channel
+ * support (iOS/web). Android only applies sound/vibration when a channel is
+ * first created, so changing those settings requires a new channel id.
  */
 export async function ensureNotificationChannels(): Promise<void> {
   const variants: { id: string; sound: boolean; vibration: boolean }[] = [
@@ -55,6 +64,8 @@ export async function ensureNotificationChannels(): Promise<void> {
     { id: REMINDER_CHANNEL_VIBRATION_ONLY, sound: false, vibration: true },
     { id: REMINDER_CHANNEL_SILENT, sound: false, vibration: false },
   ];
+
+  await Notifications.deleteNotificationChannelAsync(LEGACY_REMINDER_CHANNEL);
 
   await Promise.all(
     variants.map(({ id, sound, vibration }) =>
