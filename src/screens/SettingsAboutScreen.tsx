@@ -75,7 +75,9 @@ export function SettingsAboutScreen() {
           <AppLogo size={72} />
         </Pressable>
         <Text className="mt-4 text-2xl font-bold text-brand dark:text-white">At Place</Text>
-        <Text className="mt-1 text-sm text-muted dark:text-mutedDark">Be where it matters.</Text>
+        <Text className="mt-1 text-sm text-muted dark:text-mutedDark">
+          Remember it. Where it matters.
+        </Text>
         {feedback ? (
           <Text className="mt-2 text-xs text-muted dark:text-mutedDark">{feedback}</Text>
         ) : null}
