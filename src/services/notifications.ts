@@ -103,6 +103,13 @@ export async function requestNotificationPermission(): Promise<boolean> {
  * `utils/notificationPrefs.ts`): they select the Android channel and the iOS
  * sound, and are also stamped into `data` so the foreground handler above
  * can honor the same sound setting.
+ *
+ * `delaySeconds` (default 0, i.e. immediate) holds the notification back so
+ * the geofence task can cancel it if the transition turns out to be a
+ * drive-through rather than a genuine arrival/departure (see
+ * `services/geofencing.ts`'s pending-delivery handling). Returns the
+ * scheduled notification's id so the caller can cancel it later via
+ * `cancelScheduledNotifications`.
  */
 export async function presentReminderNotification(
   placeName: string,
@@ -110,18 +117,36 @@ export async function presentReminderNotification(
   trigger: ReminderTrigger,
   sound: boolean,
   vibration: boolean,
-): Promise<void> {
+  delaySeconds = 0,
+): Promise<string> {
   const title = trigger === "arrive" ? `You're at ${placeName}` : `Leaving ${placeName}`;
 
-  await Notifications.scheduleNotificationAsync({
+  return await Notifications.scheduleNotificationAsync({
     content: {
       title,
       body: reminderTitle,
       sound: sound ? "default" : false,
       data: { sound },
     },
-    trigger: { channelId: channelFor(sound, vibration) },
+    trigger:
+      delaySeconds > 0
+        ? {
+            type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+            seconds: delaySeconds,
+            channelId: channelFor(sound, vibration),
+          }
+        : { channelId: channelFor(sound, vibration) },
   });
+}
+
+/**
+ * Cancels previously scheduled notifications that haven't fired yet — used
+ * when a pending delayed arrival/leave notification turns out to be a
+ * drive-through (see `services/geofencing.ts`). Cancelling an id that has
+ * already fired or doesn't exist is a silent no-op.
+ */
+export async function cancelScheduledNotifications(ids: string[]): Promise<void> {
+  await Promise.all(ids.map((id) => Notifications.cancelScheduledNotificationAsync(id)));
 }
 
 /**

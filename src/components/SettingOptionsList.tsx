@@ -4,12 +4,12 @@ import { Pressable, Text, View } from "react-native";
 
 import { colors } from "@/theme/colors";
 
-type SettingOption<T extends string> = {
+type SettingOption<T extends string | number> = {
   value: T;
   label: string;
 };
 
-type SettingOptionsListProps<T extends string> = {
+type SettingOptionsListProps<T extends string | number> = {
   options: SettingOption<T>[];
   value: T;
   onSelect: (value: T) => void;
@@ -17,10 +17,11 @@ type SettingOptionsListProps<T extends string> = {
 
 /**
  * Single-select list of options used by the Settings drill-in screens
- * (App Theme, Units): one row per option, with a checkmark on the active
- * value. Selecting a row applies immediately — there's no separate save step.
+ * (App Theme, Units, Arrival/Leave Delay): one row per option, with a
+ * checkmark on the active value. Selecting a row applies immediately —
+ * there's no separate save step.
  */
-export function SettingOptionsList<T extends string>({
+export function SettingOptionsList<T extends string | number>({
   options,
   value,
   onSelect,

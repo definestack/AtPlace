@@ -11,7 +11,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 // The background geofence task itself is registered from `index.js` (issue
 // #37), not here, so the OS can find it on a headless background relaunch —
 // this route layout only runs `requestGeofencingPermissions`/`syncGeofences`.
-import { requestGeofencingPermissions, syncGeofences } from "@/services/geofencing";
+import { finalizeDuePending, requestGeofencingPermissions, syncGeofences } from "@/services/geofencing";
 import { logException, logInfo } from "@/services/logger";
 import { useNotificationsStore } from "@/store/notificationsStore";
 import { usePlacesStore } from "@/store/placesStore";
@@ -33,21 +33,37 @@ export default function RootLayout() {
   useEffect(() => {
     hydrate();
     hydratePlaces();
-    hydrateReminders();
+    // A delayed arrival/leave notification (issue: drive-through false
+    // positives) may have already fired while the app was closed, with its
+    // inbox row/one-time-reminder disable still pending — catch those up
+    // before hydrating reminders/notifications so both stores read current
+    // data (see `finalizeDuePending` in `services/geofencing.ts`).
+    finalizeDuePending()
+      .catch((error) => logException("Failed to finalize pending geofence deliveries", error))
+      .finally(() => {
+        hydrateReminders();
+        hydrateNotifications();
+      });
     hydrateSettings();
-    hydrateNotifications();
   }, [hydrate, hydratePlaces, hydrateReminders, hydrateSettings, hydrateNotifications]);
 
   // The geofence task can deliver notifications while the app is
-  // backgrounded/closed (issue #40); re-hydrate the notifications store
-  // whenever the app returns to the foreground so the list and footer
-  // badge reflect anything written in the background.
+  // backgrounded/closed (issue #40); re-sync on foreground so a delayed
+  // notification that fired while backgrounded is finalized, and the list /
+  // footer badge reflect anything written in the background.
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (state) => {
-      if (state === "active") hydrateNotifications();
+      if (state === "active") {
+        finalizeDuePending()
+          .catch((error) => logException("Failed to finalize pending geofence deliveries", error))
+          .finally(() => {
+            hydrateReminders();
+            hydrateNotifications();
+          });
+      }
     });
     return () => subscription.remove();
-  }, [hydrateNotifications]);
+  }, [hydrateReminders, hydrateNotifications]);
 
   useEffect(() => {
     setColorScheme(mode);

@@ -122,7 +122,7 @@ src/
 
 **Notifications**
 - Local (on-device) notifications
-- Delivered when entering geofence
+- Delivered after staying inside/outside a place for the configured Arrival Delay / Leave Delay (Settings > Notifications, default 3 minutes each), so driving through a saved place doesn't fire a false reminder
 - No server infrastructure required
 
 ### Database
