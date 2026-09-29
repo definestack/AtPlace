@@ -43,8 +43,13 @@ function toNotification(row: NotificationRowRecord): AppNotification {
  * retention window, so the table can't grow unbounded on a device that
  * never opens the Notifications screen. Throws on failure — called from the
  * geofence task, which already wraps notification delivery in a try/catch.
+ *
+ * `createdAt` defaults to now, but the geofence task passes the delayed
+ * notification's actual fire time (see `finalizeDuePending` in
+ * `services/geofencing.ts`) so the inbox row reflects when the OS
+ * notification appeared, not when the geofence transition was scheduled.
  */
-export async function insertNotification(entry: NewNotification): Promise<void> {
+export async function insertNotification(entry: NewNotification, createdAt = Date.now()): Promise<void> {
   const db = await getDatabase();
   await db.runAsync(
     `INSERT INTO notifications
@@ -58,7 +63,7 @@ export async function insertNotification(entry: NewNotification): Promise<void> 
     entry.placeIcon,
     entry.placeColor,
     entry.trigger,
-    Date.now(),
+    createdAt,
   );
   await db.runAsync(
     "DELETE FROM notifications WHERE read = 1 AND created_at < ?",

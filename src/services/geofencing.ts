@@ -7,16 +7,20 @@ import {
   getActiveRemindersForTrigger,
   getGeofenceRegions,
   setReminderEnabled,
+  type ActiveReminderSummary,
   type GeofenceRegion,
 } from "@/db/remindersRepository";
 import { logException, logGeofence, logNotification } from "@/services/logger";
 import { LocationPermissionDeniedError } from "@/services/location";
 import {
+  cancelScheduledNotifications,
   ensureNotificationChannels,
   presentReminderNotification,
   requestNotificationPermission,
 } from "@/services/notifications";
 import {
+  getArrivalDelayMinutes,
+  getLeaveDelayMinutes,
   getNotificationSound,
   getNotificationVibration,
   getNotificationsEnabled,
@@ -43,7 +47,7 @@ function regionsSignature(regions: GeofenceRegion[]): string {
   return JSON.stringify(
     [...regions]
       .sort((a, b) => a.placeId.localeCompare(b.placeId))
-      .map((r) => [r.placeId, r.latitude, r.longitude, r.radius, r.notifyOnEnter, r.notifyOnExit]),
+      .map((r) => [r.placeId, r.latitude, r.longitude, r.radius]),
   );
 }
 
@@ -55,6 +59,13 @@ function regionsSignature(regions: GeofenceRegion[]): string {
  * ENTER/EXIT transition Android fires for every region on registration
  * (issue #46) — that spurious event always matches the freshly-seeded
  * occupancy, so `shouldNotify` recognizes it as "no real change" and skips it.
+ *
+ * `enteredAt` additionally records *when* the last genuine ENTER for a place
+ * happened, so the task handler can tell a drive-through from a genuine stay
+ * when EXIT arrives (see `planTransition`). It's cleared on every genuine
+ * EXIT and left empty by `seedOccupancy` for places already inside at
+ * (re)registration — an unset entry means "treat as a confirmed stay" rather
+ * than risk suppressing a real leave reminder.
  */
 const OCCUPANCY_KEY = "atplace.geofenceOccupancy";
 
@@ -64,20 +75,62 @@ const SETTLE_MS = 30_000;
 type OccupancyState = {
   registeredAt: number;
   occupancy: Record<string, boolean>;
+  enteredAt: Record<string, number>;
 };
 
 async function getOccupancyState(): Promise<OccupancyState> {
   const raw = await AsyncStorage.getItem(OCCUPANCY_KEY);
-  if (!raw) return { registeredAt: 0, occupancy: {} };
+  if (!raw) return { registeredAt: 0, occupancy: {}, enteredAt: {} };
   try {
-    return JSON.parse(raw) as OccupancyState;
+    // `enteredAt` was added after `registeredAt`/`occupancy` — default it for
+    // state persisted by an older build of the app.
+    const parsed = JSON.parse(raw) as Partial<OccupancyState>;
+    return {
+      registeredAt: parsed.registeredAt ?? 0,
+      occupancy: parsed.occupancy ?? {},
+      enteredAt: parsed.enteredAt ?? {},
+    };
   } catch {
-    return { registeredAt: 0, occupancy: {} };
+    return { registeredAt: 0, occupancy: {}, enteredAt: {} };
   }
 }
 
 async function setOccupancyState(state: OccupancyState): Promise<void> {
   await AsyncStorage.setItem(OCCUPANCY_KEY, JSON.stringify(state));
+}
+
+/**
+ * A reminder notification that's been scheduled with a delay (issue: driving
+ * through a place shouldn't notify) but hasn't fired/been finalized yet, one
+ * per place. `notificationIds` are the OS-scheduled notifications to cancel
+ * if the transition turns out to be a drive-through; `reminders` is the
+ * snapshot needed to write the inbox row(s) and disable one-time reminders
+ * once `fireAt` elapses (see `finalizeDuePending`).
+ */
+type PendingDelivery = {
+  trigger: ReminderTrigger;
+  fireAt: number;
+  notificationIds: string[];
+  reminders: ActiveReminderSummary[];
+};
+
+type PendingState = Record<string, PendingDelivery>;
+
+/** Keyed separately from `OCCUPANCY_KEY` so re-seeding occupancy never wipes pending deliveries. */
+const PENDING_KEY = "atplace.geofencePending";
+
+async function getPendingState(): Promise<PendingState> {
+  const raw = await AsyncStorage.getItem(PENDING_KEY);
+  if (!raw) return {};
+  try {
+    return JSON.parse(raw) as PendingState;
+  } catch {
+    return {};
+  }
+}
+
+async function setPendingState(state: PendingState): Promise<void> {
+  await AsyncStorage.setItem(PENDING_KEY, JSON.stringify(state));
 }
 
 /**
@@ -110,6 +163,117 @@ export function shouldNotify(
   return { notify: true, nextInside: expectedInside };
 }
 
+/** What to do about a genuine transition, once `shouldNotify` has confirmed it's real. */
+type TransitionDecision =
+  | { action: "cancelOpposite" }
+  | { action: "schedule"; delayMs: number }
+  | { action: "suppressShortStay" };
+
+/**
+ * Decides how to handle a genuine ENTER/EXIT once `shouldNotify` has ruled
+ * out a spurious post-registration event, so a drive-through doesn't notify
+ * (the original motivation for this whole delay scheme). Pure, like
+ * `shouldNotify`, so the drive-through/reversal rules are easy to reason
+ * about independent of AsyncStorage/TaskManager:
+ *
+ * - ENTER while a LEAVE is still pending (not yet fired) means the device
+ *   never really left — cancel the pending leave, nothing new to schedule.
+ * - EXIT while an ARRIVE is still pending means this was a drive-through —
+ *   cancel the pending arrival, nothing new to schedule (leave is suppressed
+ *   too, since there was no confirmed arrival to leave from).
+ * - EXIT with no pending arrival, but the confirmed stay (`now - enteredAt`)
+ *   was shorter than the arrival delay, is the same drive-through case for a
+ *   place with only `leave` reminders (no arrival was ever scheduled to
+ *   cancel). `enteredAt` unset (place was already occupied when regions were
+ *   last (re)registered) is treated as a confirmed stay, not a short one.
+ * - Otherwise, schedule the notification with the appropriate delay.
+ */
+export function planTransition(
+  trigger: ReminderTrigger,
+  pending: PendingDelivery | undefined,
+  enteredAt: number | undefined,
+  now: number,
+  arrivalDelayMs: number,
+  leaveDelayMs: number,
+): TransitionDecision {
+  const pendingOpposite = trigger === "arrive" ? "leave" : "arrive";
+  if (pending?.trigger === pendingOpposite && pending.fireAt > now) {
+    return { action: "cancelOpposite" };
+  }
+
+  if (trigger === "arrive") {
+    return { action: "schedule", delayMs: arrivalDelayMs };
+  }
+
+  if (enteredAt !== undefined && now - enteredAt < arrivalDelayMs) {
+    return { action: "suppressShortStay" };
+  }
+  return { action: "schedule", delayMs: leaveDelayMs };
+}
+
+/**
+ * Delivers the inbox row(s) and one-time-reminder disable for every pending
+ * delayed notification whose `fireAt` has elapsed, then drops it from
+ * pending state. The OS notification itself was already scheduled (with its
+ * own delay) by `presentReminderNotification` — this just catches up the
+ * app's own records (inbox, one-time reminder) to match, since nothing else
+ * wakes the JS runtime purely because a scheduled notification's delay
+ * elapsed. Called from the geofence task itself (so a place's own pending
+ * delivery is finalized as part of handling its next transition) and from
+ * `_layout.tsx` on launch/foreground (issue #40: so the inbox reflects a
+ * delayed notification that fired while the app was closed).
+ */
+export async function finalizeDuePending(): Promise<void> {
+  const now = Date.now();
+  const pendingState = await getPendingState();
+  const dueEntries = Object.entries(pendingState).filter(([, entry]) => entry.fireAt <= now);
+  if (dueEntries.length === 0) return;
+
+  let disabledOneTimeReminder = false;
+  for (const [placeId, entry] of dueEntries) {
+    for (const reminder of entry.reminders) {
+      // Persist a notification-inbox row alongside the OS notification
+      // (issue #40), so the in-app Notifications screen has a record of
+      // deliveries that happened while the app was closed. A denormalized
+      // snapshot of the reminder/place is stored so the row still renders
+      // correctly even if the reminder or place is later edited/deleted.
+      // Stamped with the notification's actual fire time, not now.
+      await insertNotification(
+        {
+          reminderId: reminder.reminderId,
+          placeId,
+          reminderTitle: reminder.title,
+          placeName: reminder.placeName,
+          placeIcon: reminder.placeIcon,
+          placeColor: reminder.placeColor,
+          trigger: entry.trigger,
+        },
+        entry.fireAt,
+      );
+      await logNotification(`Presented "${reminder.title}"`, reminder.placeName);
+
+      // One-time reminders (issue #53) go inactive after firing once — shown
+      // as disabled rather than deleted, so notification history is kept.
+      if (reminder.repeat === "once") {
+        await setReminderEnabled(reminder.reminderId, false);
+        await logGeofence("Disabled one-time reminder after firing", reminder.title);
+        disabledOneTimeReminder = true;
+      }
+    }
+    delete pendingState[placeId];
+  }
+  await setPendingState(pendingState);
+
+  // A disabled one-time reminder may have been the last active reminder for
+  // this place — re-sync so the OS stops monitoring it. Safe to call
+  // unconditionally (no-ops when the region set is unchanged); the
+  // `enabled = 1` filter above already stops the reminder from re-firing
+  // even before this re-sync completes.
+  if (disabledOneTimeReminder) {
+    await syncGeofences();
+  }
+}
+
 type GeofenceTaskData = {
   eventType: Location.GeofencingEventType;
   region: Location.LocationRegion;
@@ -137,15 +301,33 @@ TaskManager.defineTask<GeofenceTaskData>(GEOFENCE_TASK_NAME, async ({ data, erro
   await logGeofence(`${trigger === "arrive" ? "Entered" : "Exited"} region`, placeId);
 
   try {
+    // Catch up any earlier pending delivery whose delay already elapsed
+    // before reasoning about this new transition (see `finalizeDuePending`).
+    await finalizeDuePending();
+
+    const now = Date.now();
+
     // Tell a genuine arrival/departure apart from the immediate ENTER/EXIT
     // Android fires for every region as soon as it's registered (issue #46).
     // Occupancy is updated regardless of what happens below so it never
     // drifts from reality.
     const occupancyState = await getOccupancyState();
-    const { notify, nextInside } = shouldNotify(trigger, placeId, occupancyState, Date.now());
+    const { notify, nextInside } = shouldNotify(trigger, placeId, occupancyState, now);
+    const enteredAt = occupancyState.enteredAt[placeId];
+    const nextEnteredAt = { ...occupancyState.enteredAt };
+    if (notify) {
+      // Genuine ENTER starts (or restarts) the confirmed-stay clock; genuine
+      // EXIT clears it — the stay is over either way (drive-through or not).
+      if (trigger === "arrive") {
+        nextEnteredAt[placeId] = now;
+      } else {
+        delete nextEnteredAt[placeId];
+      }
+    }
     await setOccupancyState({
       ...occupancyState,
       occupancy: { ...occupancyState.occupancy, [placeId]: nextInside },
+      enteredAt: nextEnteredAt,
     });
     if (!notify) {
       await logGeofence("Suppressed — not a genuine transition", placeId);
@@ -159,51 +341,76 @@ TaskManager.defineTask<GeofenceTaskData>(GEOFENCE_TASK_NAME, async ({ data, erro
       return;
     }
 
+    const pendingState = await getPendingState();
+    const [arrivalDelayMinutes, leaveDelayMinutes] = await Promise.all([
+      getArrivalDelayMinutes(),
+      getLeaveDelayMinutes(),
+    ]);
+    const decision = planTransition(
+      trigger,
+      pendingState[placeId],
+      enteredAt,
+      now,
+      arrivalDelayMinutes * 60_000,
+      leaveDelayMinutes * 60_000,
+    );
+
+    if (decision.action === "cancelOpposite") {
+      const opposite = pendingState[placeId];
+      await cancelScheduledNotifications(opposite.notificationIds);
+      delete pendingState[placeId];
+      await setPendingState(pendingState);
+      await logGeofence(
+        trigger === "arrive"
+          ? "Cancelled pending leave notification — returned before it fired"
+          : "Cancelled pending arrival notification — drive-through detected",
+        placeId,
+      );
+      return;
+    }
+
+    if (decision.action === "suppressShortStay") {
+      await logGeofence("Suppressed leave notification — stay shorter than arrival delay", placeId);
+      return;
+    }
+
     // Resolved once per batch (issue #51): the global defaults apply to every
     // reminder still set to "Use Default" for that setting.
-    const [globalSound, globalVibration] = await Promise.all([
+    const [reminders, globalSound, globalVibration] = await Promise.all([
+      getActiveRemindersForTrigger(placeId, trigger),
       getNotificationSound(),
       getNotificationVibration(),
     ]);
+    if (reminders.length === 0) return;
 
-    const reminders = await getActiveRemindersForTrigger(placeId, trigger);
-    let disabledOneTimeReminder = false;
+    const delaySeconds = Math.round(decision.delayMs / 1000);
+    const notificationIds: string[] = [];
     for (const reminder of reminders) {
       const sound = resolveOverride(reminder.sound, globalSound);
       const vibration = resolveOverride(reminder.vibration, globalVibration);
-      await presentReminderNotification(reminder.placeName, reminder.title, trigger, sound, vibration);
-      await logNotification(`Presented "${reminder.title}"`, reminder.placeName);
-      // Persist a notification-inbox row alongside the OS notification
-      // (issue #40), so the in-app Notifications screen has a record of
-      // deliveries that happened while the app was closed. A denormalized
-      // snapshot of the reminder/place is stored so the row still renders
-      // correctly even if the reminder or place is later edited/deleted.
-      await insertNotification({
-        reminderId: reminder.reminderId,
-        placeId,
-        reminderTitle: reminder.title,
-        placeName: reminder.placeName,
-        placeIcon: reminder.placeIcon,
-        placeColor: reminder.placeColor,
+      const id = await presentReminderNotification(
+        reminder.placeName,
+        reminder.title,
         trigger,
-      });
-
-      // One-time reminders (issue #53) go inactive after firing once — shown
-      // as disabled rather than deleted, so notification history is kept.
-      if (reminder.repeat === "once") {
-        await setReminderEnabled(reminder.reminderId, false);
-        await logGeofence("Disabled one-time reminder after firing", reminder.title);
-        disabledOneTimeReminder = true;
-      }
+        sound,
+        vibration,
+        delaySeconds,
+      );
+      notificationIds.push(id);
     }
 
-    // A disabled one-time reminder may have been the last active reminder for
-    // this place — re-sync so the OS stops monitoring it. Safe to call
-    // unconditionally (no-ops when the region set is unchanged); the
-    // `enabled = 1` filter above already stops the reminder from re-firing
-    // even before this re-sync completes.
-    if (disabledOneTimeReminder) {
-      await syncGeofences();
+    pendingState[placeId] = { trigger, fireAt: now + decision.delayMs, notificationIds, reminders };
+    await setPendingState(pendingState);
+    await logGeofence(
+      delaySeconds > 0 ? `Scheduled ${trigger} notification(s) in ${delaySeconds}s` : `Scheduled ${trigger} notification(s)`,
+      placeId,
+    );
+
+    // Delay of 0 ("Immediately") elapses instantly — finalize right away
+    // rather than waiting for the next transition or app foreground, so
+    // behavior matches pre-delay delivery exactly.
+    if (delaySeconds === 0) {
+      await finalizeDuePending();
     }
   } catch (err) {
     await logException("Failed to present reminder notification", err);
@@ -247,6 +454,7 @@ export async function syncGeofences(): Promise<void> {
     }
     await AsyncStorage.removeItem(LAST_SYNCED_REGIONS_KEY);
     await AsyncStorage.removeItem(OCCUPANCY_KEY);
+    await clearAllPending();
     return;
   }
 
@@ -256,22 +464,54 @@ export async function syncGeofences(): Promise<void> {
     AsyncStorage.getItem(LAST_SYNCED_REGIONS_KEY),
   ]);
 
+  // A place dropped from the region set (reminder deleted/disabled) should
+  // never leave a stale pending notification behind, whether or not the
+  // signature check below causes a full re-registration.
+  await dropPendingForUnmonitoredPlaces(regions.map((region) => region.placeId));
+
   // Skip re-registering when the monitored regions haven't actually changed —
   // see `LAST_SYNCED_REGIONS_KEY` above for why this matters.
   if (alreadyStarted && signature === lastSignature) return;
 
+  // Every region listens for both transitions regardless of which trigger(s)
+  // a place's reminders use — the task needs to see both to tell a genuine
+  // stay from a drive-through (see `planTransition`).
   const locationRegions: Location.LocationRegion[] = regions.map((region) => ({
     identifier: region.placeId,
     latitude: region.latitude,
     longitude: region.longitude,
     radius: region.radius,
-    notifyOnEnter: region.notifyOnEnter,
-    notifyOnExit: region.notifyOnExit,
+    notifyOnEnter: true,
+    notifyOnExit: true,
   }));
 
   await Location.startGeofencingAsync(GEOFENCE_TASK_NAME, locationRegions);
   await AsyncStorage.setItem(LAST_SYNCED_REGIONS_KEY, signature);
   await seedOccupancy(regions);
+}
+
+/** Cancels and drops every pending delivery — used when geofencing stops entirely. */
+async function clearAllPending(): Promise<void> {
+  const pendingState = await getPendingState();
+  const allIds = Object.values(pendingState).flatMap((entry) => entry.notificationIds);
+  if (allIds.length > 0) {
+    await cancelScheduledNotifications(allIds);
+  }
+  await AsyncStorage.removeItem(PENDING_KEY);
+}
+
+/** Cancels and drops any pending delivery for a place no longer in the monitored set. */
+async function dropPendingForUnmonitoredPlaces(monitoredPlaceIds: string[]): Promise<void> {
+  const pendingState = await getPendingState();
+  const monitored = new Set(monitoredPlaceIds);
+  const stalePlaceIds = Object.keys(pendingState).filter((placeId) => !monitored.has(placeId));
+  if (stalePlaceIds.length === 0) return;
+
+  for (const placeId of stalePlaceIds) {
+    await cancelScheduledNotifications(pendingState[placeId].notificationIds);
+    delete pendingState[placeId];
+  }
+  await setPendingState(pendingState);
 }
 
 /**
@@ -298,5 +538,9 @@ async function seedOccupancy(regions: GeofenceRegion[]): Promise<void> {
       : true;
   }
 
-  await setOccupancyState({ registeredAt: Date.now(), occupancy });
+  // `enteredAt` is intentionally left empty: we don't know when a place the
+  // device is already inside was actually entered, so it's treated as a
+  // confirmed stay (see `planTransition`) rather than risking a false
+  // "drive-through" suppression of a genuine leave reminder.
+  await setOccupancyState({ registeredAt: Date.now(), occupancy, enteredAt: {} });
 }

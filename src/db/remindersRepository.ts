@@ -111,10 +111,11 @@ export async function deleteAllReminders(): Promise<void> {
 
 /**
  * A place that should be actively geofenced, because it has at least one
- * enabled reminder. `notifyOnEnter`/`notifyOnExit` mirror `Location.LocationRegion`
- * and are derived from whether an enabled `arrive`/`leave` reminder exists for
- * this place, so the OS only wakes the geofence task for transitions that
- * matter (issue #10).
+ * enabled reminder. Every region registers for both ENTER and EXIT
+ * transitions regardless of which trigger(s) the place's reminders use: the
+ * geofence task needs to see both to tell a genuine arrival/departure apart
+ * from a drive-through (see `services/geofencing.ts`'s pending-delivery
+ * handling) even for a place with only `arrive` (or only `leave`) reminders.
  */
 export type GeofenceRegion = {
   placeId: string;
@@ -122,8 +123,6 @@ export type GeofenceRegion = {
   latitude: number;
   longitude: number;
   radius: number;
-  notifyOnEnter: boolean;
-  notifyOnExit: boolean;
 };
 
 type GeofenceRegionRowRecord = {
@@ -132,8 +131,6 @@ type GeofenceRegionRowRecord = {
   latitude: number;
   longitude: number;
   radius: number;
-  notify_on_enter: number;
-  notify_on_exit: number;
 };
 
 /**
@@ -144,12 +141,9 @@ type GeofenceRegionRowRecord = {
 export async function getGeofenceRegions(): Promise<GeofenceRegion[]> {
   const db = await getDatabase();
   const rows = await db.getAllAsync<GeofenceRegionRowRecord>(
-    `SELECT p.id AS place_id, p.name, p.latitude, p.longitude, p.radius,
-            MAX(CASE WHEN r.trigger = 'arrive' THEN 1 ELSE 0 END) AS notify_on_enter,
-            MAX(CASE WHEN r.trigger = 'leave' THEN 1 ELSE 0 END) AS notify_on_exit
+    `SELECT DISTINCT p.id AS place_id, p.name, p.latitude, p.longitude, p.radius
      FROM places p
-     JOIN reminders r ON r.place_id = p.id AND r.enabled = 1
-     GROUP BY p.id`,
+     JOIN reminders r ON r.place_id = p.id AND r.enabled = 1`,
   );
   return rows.map((row) => ({
     placeId: row.place_id,
@@ -157,8 +151,6 @@ export async function getGeofenceRegions(): Promise<GeofenceRegion[]> {
     latitude: row.latitude,
     longitude: row.longitude,
     radius: row.radius,
-    notifyOnEnter: row.notify_on_enter === 1,
-    notifyOnExit: row.notify_on_exit === 1,
   }));
 }
 

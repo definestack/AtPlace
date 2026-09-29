@@ -7,9 +7,29 @@ const UNITS_KEY = "atplace.units";
 const NOTIFICATIONS_ENABLED_KEY = "atplace.notificationsEnabled";
 const NOTIFICATION_SOUND_KEY = "atplace.notificationSound";
 const NOTIFICATION_VIBRATION_KEY = "atplace.notificationVibration";
+const ARRIVAL_DELAY_KEY = "atplace.arrivalDelayMinutes";
+const LEAVE_DELAY_KEY = "atplace.leaveDelayMinutes";
 const DEVELOPER_MODE_KEY = "atplace.developerModeEnabled";
 const PLACES_TIP_DISMISSED_KEY = "atplace.placesTipDismissed";
 const REMINDER_TIP_DISMISSED_KEY = "atplace.reminderTipDismissed";
+
+/**
+ * Minutes options offered for the Arrival delay / Leave delay settings
+ * (issue: drive-through false positives). `0` means "Immediately" — the
+ * pre-delay behavior.
+ */
+export const DELAY_OPTIONS_MINUTES = [0, 1, 3, 5, 10] as const;
+export type DelayMinutes = (typeof DELAY_OPTIONS_MINUTES)[number];
+
+/** A device is required to stay inside a place this long before a reminder fires. */
+const DEFAULT_DELAY_MINUTES: DelayMinutes = 3;
+
+function parseDelayMinutes(stored: string | null): DelayMinutes | null {
+  const parsed = stored === null ? NaN : Number(stored);
+  return (DELAY_OPTIONS_MINUTES as readonly number[]).includes(parsed)
+    ? (parsed as DelayMinutes)
+    : null;
+}
 
 type SettingsState = {
   units: Units;
@@ -18,6 +38,10 @@ type SettingsState = {
   notificationSound: boolean;
   /** Global default for reminder vibration (issue #51); on by default. */
   notificationVibration: boolean;
+  /** How long the device must stay inside a place before an arrive reminder fires. */
+  arrivalDelayMinutes: DelayMinutes;
+  /** How long the device must stay outside a place before a leave reminder fires. */
+  leaveDelayMinutes: DelayMinutes;
   developerModeEnabled: boolean;
   /** Whether the Places-screen contextual tip (issue #42) has been dismissed. */
   placesTipDismissed: boolean;
@@ -28,6 +52,8 @@ type SettingsState = {
   setNotificationsEnabled: (enabled: boolean) => void;
   setNotificationSound: (enabled: boolean) => void;
   setNotificationVibration: (enabled: boolean) => void;
+  setArrivalDelayMinutes: (minutes: DelayMinutes) => void;
+  setLeaveDelayMinutes: (minutes: DelayMinutes) => void;
   setDeveloperModeEnabled: (enabled: boolean) => void;
   setPlacesTipDismissed: (dismissed: boolean) => void;
   setReminderTipDismissed: (dismissed: boolean) => void;
@@ -44,6 +70,8 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   notificationsEnabled: true,
   notificationSound: true,
   notificationVibration: true,
+  arrivalDelayMinutes: DEFAULT_DELAY_MINUTES,
+  leaveDelayMinutes: DEFAULT_DELAY_MINUTES,
   developerModeEnabled: false,
   placesTipDismissed: false,
   reminderTipDismissed: false,
@@ -64,6 +92,14 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     set({ notificationVibration: enabled });
     AsyncStorage.setItem(NOTIFICATION_VIBRATION_KEY, String(enabled)).catch(() => {});
   },
+  setArrivalDelayMinutes: (minutes) => {
+    set({ arrivalDelayMinutes: minutes });
+    AsyncStorage.setItem(ARRIVAL_DELAY_KEY, String(minutes)).catch(() => {});
+  },
+  setLeaveDelayMinutes: (minutes) => {
+    set({ leaveDelayMinutes: minutes });
+    AsyncStorage.setItem(LEAVE_DELAY_KEY, String(minutes)).catch(() => {});
+  },
   setDeveloperModeEnabled: (enabled) => {
     set({ developerModeEnabled: enabled });
     AsyncStorage.setItem(DEVELOPER_MODE_KEY, String(enabled)).catch(() => {});
@@ -83,6 +119,8 @@ export const useSettingsStore = create<SettingsState>((set) => ({
         storedNotificationsEnabled,
         storedNotificationSound,
         storedNotificationVibration,
+        storedArrivalDelay,
+        storedLeaveDelay,
         storedDeveloperModeEnabled,
         storedPlacesTipDismissed,
         storedReminderTipDismissed,
@@ -91,6 +129,8 @@ export const useSettingsStore = create<SettingsState>((set) => ({
         AsyncStorage.getItem(NOTIFICATIONS_ENABLED_KEY),
         AsyncStorage.getItem(NOTIFICATION_SOUND_KEY),
         AsyncStorage.getItem(NOTIFICATION_VIBRATION_KEY),
+        AsyncStorage.getItem(ARRIVAL_DELAY_KEY),
+        AsyncStorage.getItem(LEAVE_DELAY_KEY),
         AsyncStorage.getItem(DEVELOPER_MODE_KEY),
         AsyncStorage.getItem(PLACES_TIP_DISMISSED_KEY),
         AsyncStorage.getItem(REMINDER_TIP_DISMISSED_KEY),
@@ -106,6 +146,14 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       }
       if (storedNotificationVibration !== null) {
         set({ notificationVibration: storedNotificationVibration !== "false" });
+      }
+      const arrivalDelay = parseDelayMinutes(storedArrivalDelay);
+      if (arrivalDelay !== null) {
+        set({ arrivalDelayMinutes: arrivalDelay });
+      }
+      const leaveDelay = parseDelayMinutes(storedLeaveDelay);
+      if (leaveDelay !== null) {
+        set({ leaveDelayMinutes: leaveDelay });
       }
       if (storedDeveloperModeEnabled !== null) {
         set({ developerModeEnabled: storedDeveloperModeEnabled === "true" });
@@ -152,4 +200,24 @@ export async function getNotificationSound(): Promise<boolean> {
 export async function getNotificationVibration(): Promise<boolean> {
   const stored = await AsyncStorage.getItem(NOTIFICATION_VIBRATION_KEY);
   return stored !== "false";
+}
+
+/**
+ * Reads the arrival-delay preference directly from AsyncStorage, bypassing
+ * the Zustand store — same rationale as `getNotificationsEnabled` (used by
+ * the background geofence task). Defaults to 3 minutes when unset/invalid.
+ */
+export async function getArrivalDelayMinutes(): Promise<DelayMinutes> {
+  const stored = await AsyncStorage.getItem(ARRIVAL_DELAY_KEY);
+  return parseDelayMinutes(stored) ?? DEFAULT_DELAY_MINUTES;
+}
+
+/**
+ * Reads the leave-delay preference directly from AsyncStorage, bypassing the
+ * Zustand store — same rationale as `getNotificationsEnabled` (used by the
+ * background geofence task). Defaults to 3 minutes when unset/invalid.
+ */
+export async function getLeaveDelayMinutes(): Promise<DelayMinutes> {
+  const stored = await AsyncStorage.getItem(LEAVE_DELAY_KEY);
+  return parseDelayMinutes(stored) ?? DEFAULT_DELAY_MINUTES;
 }
