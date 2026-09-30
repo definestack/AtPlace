@@ -10,6 +10,7 @@ const NOTIFICATION_VIBRATION_KEY = "atplace.notificationVibration";
 const ARRIVAL_DELAY_KEY = "atplace.arrivalDelayMinutes";
 const LEAVE_DELAY_KEY = "atplace.leaveDelayMinutes";
 const DEVELOPER_MODE_KEY = "atplace.developerModeEnabled";
+const LOGGING_ENABLED_KEY = "atplace.loggingEnabled";
 const PLACES_TIP_DISMISSED_KEY = "atplace.placesTipDismissed";
 const REMINDER_TIP_DISMISSED_KEY = "atplace.reminderTipDismissed";
 
@@ -43,6 +44,11 @@ type SettingsState = {
   /** How long the device must stay outside a place before a leave reminder fires. */
   leaveDelayMinutes: DelayMinutes;
   developerModeEnabled: boolean;
+  /**
+   * Diagnostic logging (issue #68), visible only in Developer Mode. Default
+   * `false` — see `isDiagnosticLoggingEnabled` for the effective on/off rule.
+   */
+  loggingEnabled: boolean;
   /** Whether the Places-screen contextual tip (issue #42) has been dismissed. */
   placesTipDismissed: boolean;
   /** Whether the Add Reminder contextual tip (issue #42) has been dismissed. */
@@ -55,6 +61,7 @@ type SettingsState = {
   setArrivalDelayMinutes: (minutes: DelayMinutes) => void;
   setLeaveDelayMinutes: (minutes: DelayMinutes) => void;
   setDeveloperModeEnabled: (enabled: boolean) => void;
+  setLoggingEnabled: (enabled: boolean) => void;
   setPlacesTipDismissed: (dismissed: boolean) => void;
   setReminderTipDismissed: (dismissed: boolean) => void;
   hydrate: () => Promise<void>;
@@ -73,6 +80,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   arrivalDelayMinutes: DEFAULT_DELAY_MINUTES,
   leaveDelayMinutes: DEFAULT_DELAY_MINUTES,
   developerModeEnabled: false,
+  loggingEnabled: false,
   placesTipDismissed: false,
   reminderTipDismissed: false,
   hydrated: false,
@@ -104,6 +112,10 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     set({ developerModeEnabled: enabled });
     AsyncStorage.setItem(DEVELOPER_MODE_KEY, String(enabled)).catch(() => {});
   },
+  setLoggingEnabled: (enabled) => {
+    set({ loggingEnabled: enabled });
+    AsyncStorage.setItem(LOGGING_ENABLED_KEY, String(enabled)).catch(() => {});
+  },
   setPlacesTipDismissed: (dismissed) => {
     set({ placesTipDismissed: dismissed });
     AsyncStorage.setItem(PLACES_TIP_DISMISSED_KEY, String(dismissed)).catch(() => {});
@@ -122,6 +134,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
         storedArrivalDelay,
         storedLeaveDelay,
         storedDeveloperModeEnabled,
+        storedLoggingEnabled,
         storedPlacesTipDismissed,
         storedReminderTipDismissed,
       ] = await Promise.all([
@@ -132,6 +145,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
         AsyncStorage.getItem(ARRIVAL_DELAY_KEY),
         AsyncStorage.getItem(LEAVE_DELAY_KEY),
         AsyncStorage.getItem(DEVELOPER_MODE_KEY),
+        AsyncStorage.getItem(LOGGING_ENABLED_KEY),
         AsyncStorage.getItem(PLACES_TIP_DISMISSED_KEY),
         AsyncStorage.getItem(REMINDER_TIP_DISMISSED_KEY),
       ]);
@@ -157,6 +171,9 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       }
       if (storedDeveloperModeEnabled !== null) {
         set({ developerModeEnabled: storedDeveloperModeEnabled === "true" });
+      }
+      if (storedLoggingEnabled !== null) {
+        set({ loggingEnabled: storedLoggingEnabled === "true" });
       }
       if (storedPlacesTipDismissed !== null) {
         set({ placesTipDismissed: storedPlacesTipDismissed === "true" });
@@ -200,6 +217,30 @@ export async function getNotificationSound(): Promise<boolean> {
 export async function getNotificationVibration(): Promise<boolean> {
   const stored = await AsyncStorage.getItem(NOTIFICATION_VIBRATION_KEY);
   return stored !== "false";
+}
+
+/**
+ * Effective diagnostic-logging state (issue #68): logging only happens when
+ * Developer Mode *and* the Logging toggle are both on. Turning Developer
+ * Mode off stops logging immediately but keeps the stored Logging choice, so
+ * it resumes if Developer Mode is re-enabled.
+ *
+ * When the store is hydrated (foreground), reads straight from memory so a
+ * toggle change takes effect without a restart. Otherwise (e.g. the
+ * background geofence task in a freshly relaunched JS runtime, before
+ * `hydrate()` has run) falls back to AsyncStorage directly, same rationale as
+ * `getNotificationsEnabled`.
+ */
+export async function isDiagnosticLoggingEnabled(): Promise<boolean> {
+  const state = useSettingsStore.getState();
+  if (state.hydrated) {
+    return state.developerModeEnabled && state.loggingEnabled;
+  }
+  const [storedDeveloperModeEnabled, storedLoggingEnabled] = await Promise.all([
+    AsyncStorage.getItem(DEVELOPER_MODE_KEY),
+    AsyncStorage.getItem(LOGGING_ENABLED_KEY),
+  ]);
+  return storedDeveloperModeEnabled === "true" && storedLoggingEnabled === "true";
 }
 
 /**
