@@ -11,12 +11,14 @@ import { ScreenHeader } from "@/components/ScreenHeader";
 import { deleteAllLogs, getRecentLogs } from "@/db/logsRepository";
 import { colors } from "@/theme/colors";
 import type { LogCategory, LogEntry } from "@/types/log";
+import { parseLogDetail } from "@/utils/logFormat";
 
 const LOGS_FILE_NAME = "atplace-logs.json";
 
 const CATEGORY_LABEL: Record<LogCategory, string> = {
   geofence: "Geofence",
   notification: "Notification",
+  vibration: "Vibration",
   exception: "Error",
   info: "Info",
 };
@@ -24,9 +26,13 @@ const CATEGORY_LABEL: Record<LogCategory, string> = {
 const CATEGORY_COLOR: Record<LogCategory, string> = {
   geofence: colors.brandLight,
   notification: colors.teal,
+  vibration: colors.plum,
   exception: colors.coral,
   info: colors.muted,
 };
+
+/** Detail blocks longer than this collapse behind "Show more" (e.g. an exception's stack trace). */
+const COLLAPSED_DETAIL_LINES = 6;
 
 function formatTimestamp(ms: number): string {
   return new Date(ms).toLocaleString(undefined, {
@@ -38,7 +44,37 @@ function formatTimestamp(ms: number): string {
   });
 }
 
+/**
+ * One line of a log's parsed `detail` — a labelled `Label: value` field
+ * (issue #70, e.g. "Place: Home" or "Region ID: …") renders the label in
+ * muted small-caps and the value in the normal text color; a stack-trace
+ * line or legacy unlabelled detail renders as plain monospace text.
+ */
+function DetailLine({ label, value }: { label?: string; value: string }) {
+  if (label) {
+    return (
+      <Text className="mt-0.5 text-sm">
+        <Text className="font-medium text-muted dark:text-mutedDark">{label}: </Text>
+        <Text className="text-brand dark:text-white">{value}</Text>
+      </Text>
+    );
+  }
+  return (
+    <Text
+      className="mt-0.5 text-xs text-muted dark:text-mutedDark"
+      style={{ fontFamily: "monospace" }}
+    >
+      {value}
+    </Text>
+  );
+}
+
 function LogRow({ log }: { log: LogEntry }) {
+  const [expanded, setExpanded] = useState(false);
+  const lines = parseLogDetail(log.detail);
+  const isCollapsible = lines.length > COLLAPSED_DETAIL_LINES;
+  const visibleLines = isCollapsible && !expanded ? lines.slice(0, COLLAPSED_DETAIL_LINES) : lines;
+
   return (
     <View className="border-b border-track px-6 py-3 dark:border-surfaceDark">
       <View className="flex-row items-center justify-between">
@@ -53,8 +89,15 @@ function LogRow({ log }: { log: LogEntry }) {
         </Text>
       </View>
       <Text className="mt-1 text-base text-brand dark:text-white">{log.message}</Text>
-      {log.detail ? (
-        <Text className="mt-0.5 text-sm text-muted dark:text-mutedDark">{log.detail}</Text>
+      {visibleLines.map((line, index) => (
+        <DetailLine key={`${log.id}-${index}`} label={line.label} value={line.value} />
+      ))}
+      {isCollapsible ? (
+        <Pressable onPress={() => setExpanded((value) => !value)} className="mt-1">
+          <Text className="text-xs font-medium" style={{ color: colors.brandLight }}>
+            {expanded ? "Show less" : `Show more (${lines.length - COLLAPSED_DETAIL_LINES} more lines)`}
+          </Text>
+        </Pressable>
       ) : null}
     </View>
   );

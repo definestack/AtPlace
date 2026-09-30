@@ -1,5 +1,6 @@
 import { insertLog } from "@/db/logsRepository";
 import type { LogCategory } from "@/types/log";
+import { describeError, formatLogDetail, joinLogDetail } from "@/utils/logFormat";
 
 /**
  * Writes a diagnostic log row (issue #37) and never throws — a failed log
@@ -25,14 +26,27 @@ export function logNotification(message: string, detail?: string): Promise<void>
   return log("notification", message, detail);
 }
 
-/** Logs an unexpected error, capturing its message/stack as `detail`. */
-export function logException(message: string, error: unknown): Promise<void> {
-  const detail = error instanceof Error ? (error.stack ?? error.message) : String(error);
+/** Logs a vibration request and whether it was actually triggered (issue #70). */
+export function logVibration(message: string, detail?: string): Promise<void> {
+  return log("vibration", message, detail);
+}
+
+/**
+ * Logs an unexpected error, capturing its type/message/cause-chain/stack
+ * (issue #70) as `detail`, alongside optional `context` describing the
+ * operation that failed (e.g. the place/region involved).
+ */
+export function logException(
+  message: string,
+  error: unknown,
+  context?: Record<string, string | number | undefined>,
+): Promise<void> {
   console.error(message, error);
+  const detail = joinLogDetail(formatLogDetail(context ?? {}), describeError(error));
   return log("exception", message, detail);
 }
 
-/** Logs an informational event that isn't a geofence/notification/exception. */
+/** Logs an informational event that isn't a geofence/notification/vibration/exception. */
 export function logInfo(message: string, detail?: string): Promise<void> {
   return log("info", message, detail);
 }
