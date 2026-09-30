@@ -46,7 +46,10 @@ export function SelectReminderPlaceScreen() {
   );
 
   return (
-    <SafeAreaView className="flex-1 bg-cream dark:bg-brand-deep" edges={["top", "left", "right"]}>
+    <SafeAreaView
+      className="flex-1 bg-cream dark:bg-brand-deep"
+      edges={["top", "left", "right", "bottom"]}
+    >
       <ScreenHeader title="Select Place" onBack={() => router.back()} />
       <FlatList
         data={places}
