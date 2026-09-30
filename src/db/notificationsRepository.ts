@@ -106,7 +106,10 @@ export async function deleteNotification(id: string): Promise<void> {
   await db.runAsync("DELETE FROM notifications WHERE id = ?", id);
 }
 
-/** Deletes every notification. Used by restore (`services/backup.ts`). */
+/**
+ * Deletes every notification. Used by restore (`services/backup.ts`) and by
+ * the Notifications screen's Clear action (`notificationsStore.clearAll`).
+ */
 export async function deleteAllNotifications(): Promise<void> {
   const db = await getDatabase();
   await db.runAsync("DELETE FROM notifications");
