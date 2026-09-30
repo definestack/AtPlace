@@ -30,6 +30,7 @@ export function NotificationsScreen() {
   const markUnread = useNotificationsStore((state) => state.markUnread);
   const markAllRead = useNotificationsStore((state) => state.markAllRead);
   const deleteNotification = useNotificationsStore((state) => state.deleteNotification);
+  const clearAll = useNotificationsStore((state) => state.clearAll);
   const [refreshing, setRefreshing] = useState(false);
 
   const sections = useMemo(() => groupNotificationsByDate(notifications), [notifications]);
@@ -96,20 +97,47 @@ export function NotificationsScreen() {
     }
   };
 
+  const runClear = async () => {
+    try {
+      await clearAll();
+    } catch {
+      Alert.alert("Something went wrong", "Notifications couldn't be cleared.");
+    }
+  };
+
+  const handleClear = () => {
+    Alert.alert(
+      "Clear all notifications?",
+      "This will remove all notifications from the notification list.",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Clear", style: "destructive", onPress: runClear },
+      ],
+    );
+  };
+
   return (
     <SafeAreaView className="flex-1 bg-cream dark:bg-brand-deep" edges={["top", "left", "right"]}>
       <ScreenHeader title="Notifications" />
 
-      {unreadCount > 0 ? (
-        <View className="flex-row px-6 pt-4">
-          <Pressable onPress={handleMarkAllRead} className="flex-row items-center gap-1.5">
-            <Ionicons
-              name="checkmark-done-outline"
-              size={18}
-              color={isDark ? colors.white : colors.brand}
-            />
-            <Text className="text-sm font-medium text-brand dark:text-white">
-              Mark all as read
+      {notifications.length > 0 ? (
+        <View className="flex-row gap-4 px-6 pt-4">
+          {unreadCount > 0 ? (
+            <Pressable onPress={handleMarkAllRead} className="flex-row items-center gap-1.5">
+              <Ionicons
+                name="checkmark-done-outline"
+                size={18}
+                color={isDark ? colors.white : colors.brand}
+              />
+              <Text className="text-sm font-medium text-brand dark:text-white">
+                Mark all as read
+              </Text>
+            </Pressable>
+          ) : null}
+          <Pressable onPress={handleClear} className="flex-row items-center gap-1.5">
+            <Ionicons name="trash-outline" size={18} color={colors.coral} />
+            <Text className="text-sm font-medium" style={{ color: colors.coral }}>
+              Clear
             </Text>
           </Pressable>
         </View>

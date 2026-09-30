@@ -1,6 +1,7 @@
 import { create } from "zustand";
 
 import {
+  deleteAllNotifications,
   deleteNotification as deleteNotificationRow,
   getVisibleNotifications,
   markAllNotificationsRead,
@@ -16,6 +17,7 @@ type NotificationsState = {
   markUnread: (id: string) => Promise<void>;
   markAllRead: () => Promise<void>;
   deleteNotification: (id: string) => Promise<void>;
+  clearAll: () => Promise<void>;
 };
 
 /**
@@ -54,6 +56,11 @@ export const useNotificationsStore = create<NotificationsState>((set) => ({
   },
   deleteNotification: async (id) => {
     await deleteNotificationRow(id);
+    const notifications = await getVisibleNotifications();
+    set({ notifications });
+  },
+  clearAll: async () => {
+    await deleteAllNotifications();
     const notifications = await getVisibleNotifications();
     set({ notifications });
   },
