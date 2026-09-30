@@ -125,6 +125,11 @@ src/
 - Delivered after staying inside/outside a place for the configured Arrival Delay / Leave Delay (Settings > Notifications, default 3 minutes each), so driving through a saved place doesn't fire a false reminder
 - No server infrastructure required
 
+**Developer Mode**
+- Hidden diagnostics for troubleshooting, accessed via Settings > About
+- Includes a **Logging** toggle (off by default) that gates diagnostic log entries (geofence, notification, vibration, info); unexpected errors are always logged regardless of this setting
+- Diagnostic logs are viewable in Settings > Event Log while Developer Mode is enabled
+
 ### Database
 
 Reminders and locations are stored locally in SQLite. The database includes:

@@ -34,6 +34,8 @@ export function SettingsScreen() {
   const notificationsEnabled = useSettingsStore((state) => state.notificationsEnabled);
   const developerModeEnabled = useSettingsStore((state) => state.developerModeEnabled);
   const setDeveloperModeEnabled = useSettingsStore((state) => state.setDeveloperModeEnabled);
+  const loggingEnabled = useSettingsStore((state) => state.loggingEnabled);
+  const setLoggingEnabled = useSettingsStore((state) => state.setLoggingEnabled);
 
   const handleTestNotification = async () => {
     try {
@@ -88,6 +90,11 @@ export function SettingsScreen() {
               icon="code-slash-outline"
               label="Developer mode"
               toggle={{ value: developerModeEnabled, onValueChange: setDeveloperModeEnabled }}
+            />
+            <SettingsRow
+              icon="bug-outline"
+              label="Logging"
+              toggle={{ value: loggingEnabled, onValueChange: setLoggingEnabled }}
             />
             <SettingsRow
               icon="document-text-outline"
