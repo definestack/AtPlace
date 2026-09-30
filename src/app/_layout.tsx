@@ -18,6 +18,7 @@ import { usePlacesStore } from "@/store/placesStore";
 import { useRemindersStore } from "@/store/remindersStore";
 import { useSettingsStore } from "@/store/settingsStore";
 import { useThemeStore } from "@/store/themeStore";
+import { describeError } from "@/utils/logFormat";
 
 export default function RootLayout() {
   const { setColorScheme, colorScheme } = useColorScheme();
@@ -39,7 +40,9 @@ export default function RootLayout() {
     // before hydrating reminders/notifications so both stores read current
     // data (see `finalizeDuePending` in `services/geofencing.ts`).
     finalizeDuePending()
-      .catch((error) => logException("Failed to finalize pending geofence deliveries", error))
+      .catch((error) =>
+        logException("Failed to finalize pending geofence deliveries", error, { When: "app launch" }),
+      )
       .finally(() => {
         hydrateReminders();
         hydrateNotifications();
@@ -55,7 +58,11 @@ export default function RootLayout() {
     const subscription = AppState.addEventListener("change", (state) => {
       if (state === "active") {
         finalizeDuePending()
-          .catch((error) => logException("Failed to finalize pending geofence deliveries", error))
+          .catch((error) =>
+            logException("Failed to finalize pending geofence deliveries", error, {
+              When: "app foregrounded",
+            }),
+          )
           .finally(() => {
             hydrateReminders();
             hydrateNotifications();
@@ -74,7 +81,7 @@ export default function RootLayout() {
   // rest of the app (manual reminders list) still works.
   useEffect(() => {
     requestGeofencingPermissions().catch((error) => {
-      logException("Geofencing permissions not granted", error);
+      logException("Geofencing permissions not granted", error, { When: "app launch" });
     });
   }, []);
 
@@ -86,7 +93,7 @@ export default function RootLayout() {
     if (!remindersHydrated) return;
 
     syncGeofences().catch((error) => {
-      logInfo("Geofence sync skipped", error instanceof Error ? error.message : String(error));
+      logInfo("Geofence sync skipped", describeError(error));
     });
   }, [remindersHydrated, reminders]);
 

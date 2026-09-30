@@ -62,6 +62,18 @@ export async function getAllPlaces(): Promise<Place[]> {
 }
 
 /**
+ * Reads a single place's name, for labelling Event Log rows (issue #70) that
+ * only have a place id (the geofence region identifier) to work from.
+ * Returns `null` if the place no longer exists (e.g. deleted since the
+ * region fired) rather than throwing — callers show a fallback label.
+ */
+export async function getPlaceName(id: string): Promise<string | null> {
+  const db = await getDatabase();
+  const row = await db.getFirstAsync<{ name: string }>("SELECT name FROM places WHERE id = ?", id);
+  return row?.name ?? null;
+}
+
+/**
  * Deletes every saved place. Used by restore (`services/backup.ts`), which
  * replaces all local data with an imported backup — callers must delete
  * reminders first (`remindersRepository.deleteAllReminders`) to satisfy the

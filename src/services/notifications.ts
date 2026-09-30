@@ -1,4 +1,5 @@
 import * as Notifications from "expo-notifications";
+import { Platform } from "react-native";
 
 import type { ReminderTrigger } from "@/types/reminder";
 
@@ -93,6 +94,12 @@ export async function requestNotificationPermission(): Promise<boolean> {
   return requested.granted;
 }
 
+/** Reads the current notification permission without prompting — used for vibration diagnostics (issue #70). */
+export async function hasNotificationPermission(): Promise<boolean> {
+  const status = await Notifications.getPermissionsAsync();
+  return status.granted;
+}
+
 /**
  * Presents a local notification for a reminder that just fired, in the
  * format "You're at [Place]. [Reminder text]" (arrive) or a "leaving"
@@ -137,6 +144,56 @@ export async function presentReminderNotification(
           }
         : { channelId: channelFor(sound, vibration) },
   });
+}
+
+/**
+ * Whether Android will actually vibrate for a channel (issue #70), keeping
+ * `AndroidImportance` knowledge in this module rather than leaking it to
+ * callers. `supported: false` on platforms without channel support
+ * (iOS/web), where this can't be determined and vibration logging should
+ * say nothing rather than guess.
+ */
+export type VibrationCheck =
+  | { supported: false }
+  | { supported: true; willVibrate: true; channelId: string }
+  | { supported: true; willVibrate: false; channelId: string; reason: string };
+
+/**
+ * Reads back a notification channel's real settings and reports whether
+ * Android will vibrate for it — e.g. the user may have disabled vibration or
+ * lowered importance for this channel in Android's own notification
+ * settings, which the app can't detect any other way since channel settings
+ * are immutable once created (see `ensureNotificationChannels`).
+ */
+export async function checkChannelVibration(channelId: string): Promise<VibrationCheck> {
+  if (Platform.OS !== "android") return { supported: false };
+
+  const channel = await Notifications.getNotificationChannelAsync(channelId);
+  if (!channel) {
+    return {
+      supported: true,
+      willVibrate: false,
+      channelId,
+      reason: "Notification channel does not exist",
+    };
+  }
+  if (!channel.enableVibrate) {
+    return {
+      supported: true,
+      willVibrate: false,
+      channelId,
+      reason: "Vibration is turned off for this channel in Android's notification settings",
+    };
+  }
+  if (channel.importance <= Notifications.AndroidImportance.MIN) {
+    return {
+      supported: true,
+      willVibrate: false,
+      channelId,
+      reason: "This channel's notification importance is too low for Android to vibrate",
+    };
+  }
+  return { supported: true, willVibrate: true, channelId };
 }
 
 /**

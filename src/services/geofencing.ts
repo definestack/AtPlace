@@ -3,6 +3,7 @@ import * as Location from "expo-location";
 import * as TaskManager from "expo-task-manager";
 
 import { insertNotification } from "@/db/notificationsRepository";
+import { getPlaceName } from "@/db/placesRepository";
 import {
   getActiveRemindersForTrigger,
   getGeofenceRegions,
@@ -10,11 +11,14 @@ import {
   type ActiveReminderSummary,
   type GeofenceRegion,
 } from "@/db/remindersRepository";
-import { logException, logGeofence, logNotification } from "@/services/logger";
+import { logException, logGeofence, logNotification, logVibration } from "@/services/logger";
 import { LocationPermissionDeniedError } from "@/services/location";
 import {
   cancelScheduledNotifications,
+  channelFor,
+  checkChannelVibration,
   ensureNotificationChannels,
+  hasNotificationPermission,
   presentReminderNotification,
   requestNotificationPermission,
 } from "@/services/notifications";
@@ -27,6 +31,7 @@ import {
 } from "@/store/settingsStore";
 import type { ReminderTrigger } from "@/types/reminder";
 import { distanceMeters } from "@/utils/geo";
+import { formatLogDetail } from "@/utils/logFormat";
 import { resolveOverride } from "@/utils/notificationPrefs";
 
 /** Background task name — must match between `defineTask` and start/stopGeofencingAsync. */
@@ -133,6 +138,9 @@ async function setPendingState(state: PendingState): Promise<void> {
   await AsyncStorage.setItem(PENDING_KEY, JSON.stringify(state));
 }
 
+/** Why `shouldNotify` suppressed a transition — surfaced in the Event Log (issue #70). */
+export type SuppressReason = "alreadyInState" | "settling";
+
 /**
  * Decides whether a geofence event represents a genuine transition (and so
  * should notify), given the last known occupancy for that place. Pure so the
@@ -143,24 +151,38 @@ export function shouldNotify(
   placeId: string,
   state: OccupancyState,
   now: number,
-): { notify: boolean; nextInside: boolean } {
+): { notify: boolean; nextInside: boolean; reason?: SuppressReason } {
   const expectedInside = trigger === "arrive";
   const known = state.occupancy[placeId];
 
   // Already known to be in the state this event claims to move us to — not a
   // real change (this is the immediate post-registration transition, or a
   // duplicate delivery).
-  if (known === expectedInside) return { notify: false, nextInside: expectedInside };
+  if (known === expectedInside) {
+    return { notify: false, nextInside: expectedInside, reason: "alreadyInState" };
+  }
 
   // An apparent transition delivered shortly after (re)registration is still
   // treated as the initial trigger rather than a real move, in case Android
   // delivers it a little late. Occupancy is left as last known (falling back
   // to "not expected" if we never seeded it at all).
   if (now - state.registeredAt < SETTLE_MS) {
-    return { notify: false, nextInside: known ?? !expectedInside };
+    return { notify: false, nextInside: known ?? !expectedInside, reason: "settling" };
   }
 
   return { notify: true, nextInside: expectedInside };
+}
+
+/** Human-readable text for a `shouldNotify` suppression, shown as the log row's `Reason`. */
+function describeSuppressReason(reason: SuppressReason | undefined): string {
+  switch (reason) {
+    case "alreadyInState":
+      return "Device was already inside/outside this place (duplicate or post-registration event)";
+    case "settling":
+      return `Within the ${SETTLE_MS / 1000}s settle window after geofences were (re)registered`;
+    default:
+      return "Unknown";
+  }
 }
 
 /** What to do about a genuine transition, once `shouldNotify` has confirmed it's real. */
@@ -250,13 +272,18 @@ export async function finalizeDuePending(): Promise<void> {
         },
         entry.fireAt,
       );
-      await logNotification(`Presented "${reminder.title}"`, reminder.placeName);
+      const deliveryDetail = formatLogDetail({
+        Reminder: reminder.title,
+        Place: reminder.placeName,
+        "Region ID": placeId,
+      });
+      await logNotification(`Presented "${reminder.title}"`, deliveryDetail);
 
       // One-time reminders (issue #53) go inactive after firing once — shown
       // as disabled rather than deleted, so notification history is kept.
       if (reminder.repeat === "once") {
         await setReminderEnabled(reminder.reminderId, false);
-        await logGeofence("Disabled one-time reminder after firing", reminder.title);
+        await logGeofence("Disabled one-time reminder after firing", deliveryDetail);
         disabledOneTimeReminder = true;
       }
     }
@@ -280,6 +307,90 @@ type GeofenceTaskData = {
 };
 
 /**
+ * Logs a vibration request and, where it can be determined, whether it will
+ * actually fire (issue #70). The app has no way to observe the vibration
+ * motor itself, so this reports the resolved on/off decision and — when
+ * it's on — the real state of the Android notification channel it's
+ * delivered through (see `checkChannelVibration`); a device in silent/DND
+ * mode can still suppress vibration even when everything checked here looks
+ * fine, which the "handed to Android" row notes. Never throws — a logging
+ * failure here must not affect the reminder notification that already
+ * scheduled successfully.
+ */
+async function logVibrationOutcome(
+  reminder: ActiveReminderSummary,
+  regionDetail: { Place: string; "Region ID": string },
+  vibration: boolean,
+  sound: boolean,
+  delaySeconds: number,
+): Promise<void> {
+  const settingSource = reminder.vibration === "default" ? "global default" : "this reminder's override";
+  const baseDetail = {
+    ...regionDetail,
+    Reminder: reminder.title,
+    Setting: `${vibration ? "on" : "off"} (${settingSource})`,
+  };
+  await logVibration(`Vibration requested for "${reminder.title}"`, formatLogDetail(baseDetail));
+
+  if (!vibration) {
+    await logVibration(
+      "Vibration not triggered",
+      formatLogDetail({
+        ...baseDetail,
+        Reason:
+          reminder.vibration === "off"
+            ? "Turned off by this reminder's Vibration setting"
+            : "Turned off in Settings > Notifications (global default)",
+      }),
+    );
+    return;
+  }
+
+  try {
+    const [check, permissionGranted] = await Promise.all([
+      checkChannelVibration(channelFor(sound, vibration)),
+      hasNotificationPermission(),
+    ]);
+
+    if (!permissionGranted) {
+      await logVibration(
+        "Vibration not triggered",
+        formatLogDetail({ ...baseDetail, Reason: "Notification permission is not granted" }),
+      );
+      return;
+    }
+
+    if (!check.supported) {
+      // iOS/web: channel state can't be checked, so nothing more to say.
+      return;
+    }
+
+    if (!check.willVibrate) {
+      await logVibration(
+        "Vibration not triggered",
+        formatLogDetail({ ...baseDetail, Channel: check.channelId, Reason: check.reason }),
+      );
+      return;
+    }
+
+    await logVibration(
+      "Vibration handed to Android",
+      formatLogDetail({
+        ...baseDetail,
+        Channel: check.channelId,
+        "Fires in": `${delaySeconds}s`,
+        Note: "Device silent/DND mode may still suppress it",
+      }),
+    );
+  } catch (err) {
+    await logException("Failed to check vibration channel state", err, {
+      ...regionDetail,
+      Reminder: reminder.title,
+    });
+  }
+}
+
+/**
  * Registered at module scope (not inside a component) so the OS can relaunch
  * the JS runtime in the background and immediately find this task — per
  * `expo-task-manager`'s requirement that `defineTask` run in the global
@@ -287,7 +398,9 @@ type GeofenceTaskData = {
  */
 TaskManager.defineTask<GeofenceTaskData>(GEOFENCE_TASK_NAME, async ({ data, error }) => {
   if (error) {
-    await logException("Geofencing task error", error);
+    await logException("Geofencing task error", error, {
+      "Region ID": data?.region?.identifier,
+    });
     return;
   }
   if (!data) return;
@@ -298,7 +411,22 @@ TaskManager.defineTask<GeofenceTaskData>(GEOFENCE_TASK_NAME, async ({ data, erro
 
   const trigger: ReminderTrigger =
     eventType === Location.GeofencingEventType.Enter ? "arrive" : "leave";
-  await logGeofence(`${trigger === "arrive" ? "Entered" : "Exited"} region`, placeId);
+
+  // Resolved once per event so every log row below can name the place
+  // instead of just its internal region id (issue #70). A lookup failure
+  // (or a deleted place) must never block delivery — it only affects the
+  // log's label.
+  let placeName: string | null = null;
+  try {
+    placeName = await getPlaceName(placeId);
+  } catch (err) {
+    await logException("Failed to resolve place name for geofence event", err, {
+      "Region ID": placeId,
+    });
+  }
+  const regionDetail = { Place: placeName ?? "Unknown place (deleted?)", "Region ID": placeId };
+
+  await logGeofence(`${trigger === "arrive" ? "Entered" : "Exited"} region`, formatLogDetail(regionDetail));
 
   try {
     // Catch up any earlier pending delivery whose delay already elapsed
@@ -312,7 +440,7 @@ TaskManager.defineTask<GeofenceTaskData>(GEOFENCE_TASK_NAME, async ({ data, erro
     // Occupancy is updated regardless of what happens below so it never
     // drifts from reality.
     const occupancyState = await getOccupancyState();
-    const { notify, nextInside } = shouldNotify(trigger, placeId, occupancyState, now);
+    const { notify, nextInside, reason } = shouldNotify(trigger, placeId, occupancyState, now);
     const enteredAt = occupancyState.enteredAt[placeId];
     const nextEnteredAt = { ...occupancyState.enteredAt };
     if (notify) {
@@ -330,14 +458,20 @@ TaskManager.defineTask<GeofenceTaskData>(GEOFENCE_TASK_NAME, async ({ data, erro
       enteredAt: nextEnteredAt,
     });
     if (!notify) {
-      await logGeofence("Suppressed — not a genuine transition", placeId);
+      await logGeofence(
+        "Suppressed — not a genuine transition",
+        formatLogDetail({ ...regionDetail, Reason: describeSuppressReason(reason) }),
+      );
       return;
     }
 
     // Settings screen "Notifications" toggle (issue #12): keep geofencing
     // itself running, but suppress the resulting notification when disabled.
     if (!(await getNotificationsEnabled())) {
-      await logNotification("Suppressed — notifications disabled in Settings", placeId);
+      await logNotification(
+        "Suppressed — notifications disabled in Settings",
+        formatLogDetail({ ...regionDetail, Reason: "Notifications are turned off in Settings" }),
+      );
       return;
     }
 
@@ -364,13 +498,27 @@ TaskManager.defineTask<GeofenceTaskData>(GEOFENCE_TASK_NAME, async ({ data, erro
         trigger === "arrive"
           ? "Cancelled pending leave notification — returned before it fired"
           : "Cancelled pending arrival notification — drive-through detected",
-        placeId,
+        formatLogDetail({
+          ...regionDetail,
+          Reason:
+            trigger === "arrive"
+              ? "Device re-entered before the pending leave notification fired"
+              : "Device exited before the pending arrival notification fired (drive-through)",
+        }),
       );
       return;
     }
 
     if (decision.action === "suppressShortStay") {
-      await logGeofence("Suppressed leave notification — stay shorter than arrival delay", placeId);
+      const arrivalDelayMs = arrivalDelayMinutes * 60_000;
+      const stayMs = enteredAt !== undefined ? now - enteredAt : undefined;
+      await logGeofence(
+        "Suppressed leave notification — stay shorter than arrival delay",
+        formatLogDetail({
+          ...regionDetail,
+          Reason: `Stayed ${stayMs !== undefined ? Math.round(stayMs / 1000) : "?"}s, less than the ${Math.round(arrivalDelayMs / 1000)}s arrival delay`,
+        }),
+      );
       return;
     }
 
@@ -381,7 +529,13 @@ TaskManager.defineTask<GeofenceTaskData>(GEOFENCE_TASK_NAME, async ({ data, erro
       getNotificationSound(),
       getNotificationVibration(),
     ]);
-    if (reminders.length === 0) return;
+    if (reminders.length === 0) {
+      await logGeofence(
+        "No active reminders for this transition",
+        formatLogDetail({ ...regionDetail, Trigger: trigger }),
+      );
+      return;
+    }
 
     const delaySeconds = Math.round(decision.delayMs / 1000);
     const notificationIds: string[] = [];
@@ -397,13 +551,15 @@ TaskManager.defineTask<GeofenceTaskData>(GEOFENCE_TASK_NAME, async ({ data, erro
         delaySeconds,
       );
       notificationIds.push(id);
+
+      await logVibrationOutcome(reminder, regionDetail, vibration, sound, delaySeconds);
     }
 
     pendingState[placeId] = { trigger, fireAt: now + decision.delayMs, notificationIds, reminders };
     await setPendingState(pendingState);
     await logGeofence(
       delaySeconds > 0 ? `Scheduled ${trigger} notification(s) in ${delaySeconds}s` : `Scheduled ${trigger} notification(s)`,
-      placeId,
+      formatLogDetail(regionDetail),
     );
 
     // Delay of 0 ("Immediately") elapses instantly — finalize right away
@@ -413,7 +569,10 @@ TaskManager.defineTask<GeofenceTaskData>(GEOFENCE_TASK_NAME, async ({ data, erro
       await finalizeDuePending();
     }
   } catch (err) {
-    await logException("Failed to present reminder notification", err);
+    await logException("Failed to present reminder notification", err, {
+      ...regionDetail,
+      Trigger: trigger,
+    });
   }
 });
 
@@ -528,7 +687,9 @@ async function seedOccupancy(regions: GeofenceRegion[]): Promise<void> {
   try {
     position = (await Location.getLastKnownPositionAsync()) ?? (await Location.getCurrentPositionAsync());
   } catch (err) {
-    await logException("Failed to read position while seeding geofence occupancy", err);
+    await logException("Failed to read position while seeding geofence occupancy", err, {
+      "Region count": regions.length,
+    });
   }
 
   const occupancy: Record<string, boolean> = {};
