@@ -14,6 +14,12 @@ type SettingsRowProps = {
   onPress?: () => void;
   /** Tints the leading icon brand-blue in both themes (mockup #10: Backup & Restore, About). */
   accent?: boolean;
+  /**
+   * One-shot action row (e.g. Test Notification): hides the trailing chevron
+   * since the row doesn't navigate anywhere, it fires immediately on tap
+   * (issue #81).
+   */
+  action?: boolean;
 } & (
   | { toggle?: undefined }
   | { toggle: { value: boolean; onValueChange: (value: boolean) => void } }
@@ -21,11 +27,11 @@ type SettingsRowProps = {
 
 /**
  * A single row on the Settings screen (mockup #10): leading icon, label +
- * optional current-value subtitle, and a trailing chevron for drill-in rows
- * or a `Switch` for the Notifications toggle. Mirrors the row layout used by
- * `PlaceRow`/`ReminderRow`.
+ * optional current-value subtitle, and a trailing chevron for drill-in rows,
+ * a `Switch` for toggle rows, or nothing for one-shot `action` rows. Mirrors
+ * the row layout used by `PlaceRow`/`ReminderRow`.
  */
-export function SettingsRow({ icon, label, subtitle, onPress, toggle, accent }: SettingsRowProps) {
+export function SettingsRow({ icon, label, subtitle, onPress, toggle, accent, action }: SettingsRowProps) {
   const { colorScheme } = useColorScheme();
   const isDark = colorScheme === "dark";
   const iconColor = accent ? colors.brandLight : isDark ? colors.mutedDark : colors.muted;
@@ -53,7 +59,7 @@ export function SettingsRow({ icon, label, subtitle, onPress, toggle, accent }: 
           }}
           thumbColor={colors.white}
         />
-      ) : (
+      ) : action ? null : (
         <Ionicons name="chevron-forward" size={20} color={iconColor} />
       )}
     </Pressable>
