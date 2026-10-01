@@ -112,7 +112,7 @@ src/
 
 **Saved Locations**
 - Home, Work, School, Gym, or custom places
-- Created by saving current location or selecting on map
+- Created by saving current location, selecting on map, or saving a place found via Map search
 - Configurable geofence radius
 
 **Geofencing**

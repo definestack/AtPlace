@@ -1,4 +1,5 @@
 import { GoogleMaps } from "expo-maps";
+import { useRouter } from "expo-router";
 import { useColorScheme } from "nativewind";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Text, View } from "react-native";
@@ -7,12 +8,15 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { LocationSearchBar } from "@/components/LocationSearchBar";
 import { LocationSearchResults } from "@/components/LocationSearchResults";
 import { ScreenHeader } from "@/components/ScreenHeader";
+import { SearchedPlaceCard } from "@/components/SearchedPlaceCard";
 import { PlacesSearchError, searchPlaces } from "@/services/placesSearch";
 import { usePlacesStore } from "@/store/placesStore";
+import { useReminderFlowStore } from "@/store/reminderFlowStore";
 import { colors } from "@/theme/colors";
-import type { Coordinates, PlaceSearchResult } from "@/types/location";
+import type { PlaceSearchResult } from "@/types/location";
 import type { Place } from "@/types/place";
 import { getCameraForPlaces } from "@/utils/mapBounds";
+import { findPlaceAt } from "@/utils/placeMatch";
 
 /** Alpha suffix (~20%) appended to a place color hex for the geofence fill. */
 const CIRCLE_FILL_ALPHA = "33";
@@ -36,28 +40,42 @@ const SEARCH_MARKER_ID = "__search__";
  * saved places.
  */
 export function MapScreen() {
+  const router = useRouter();
   const { colorScheme } = useColorScheme();
   const places = usePlacesStore((state) => state.places);
+  const cancelAddPlaceForReminder = useReminderFlowStore(
+    (state) => state.cancelAddPlaceForReminder,
+  );
   const mapRef = useRef<GoogleMaps.MapView>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<PlaceSearchResult[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
-  const [searchedPlace, setSearchedPlace] = useState<{
-    name: string;
-    coordinates: Coordinates;
-  } | null>(null);
+  const [searchedPlace, setSearchedPlace] = useState<PlaceSearchResult | null>(null);
 
-  const camera = useMemo(
-    () =>
-      getCameraForPlaces(
-        places.map((place) => ({ latitude: place.latitude, longitude: place.longitude })),
-      ),
-    [places],
+  // A searched location that matches an already-saved place (issue #86) —
+  // its card offers no "Save place" action, and its own pin/circle (already
+  // drawn from `places`) stand in for the temporary search marker.
+  const matchedPlace = useMemo(
+    () => (searchedPlace ? findPlaceAt(places, searchedPlace.coordinates) : undefined),
+    [places, searchedPlace],
   );
 
+  const camera = useMemo(() => {
+    if (matchedPlace) {
+      return {
+        coordinates: { latitude: matchedPlace.latitude, longitude: matchedPlace.longitude },
+        zoom: SEARCH_RESULT_ZOOM,
+      };
+    }
+    return getCameraForPlaces(
+      places.map((place) => ({ latitude: place.latitude, longitude: place.longitude })),
+    );
+  }, [places, matchedPlace]);
+
   // Re-frame the map whenever the set of places changes (initial hydration,
-  // or a place added elsewhere). `cameraPosition` only seeds the *initial*
-  // camera, so we drive later updates imperatively via the ref.
+  // a place added elsewhere, or a searched place just saved from this
+  // screen). `cameraPosition` only seeds the *initial* camera, so we drive
+  // later updates imperatively via the ref.
   useEffect(() => {
     mapRef.current?.setCameraPosition({ ...camera, duration: 300 });
   }, [camera]);
@@ -71,7 +89,9 @@ export function MapScreen() {
       showCallout: true,
     }));
 
-    if (!searchedPlace) return placeMarkers;
+    // Once the searched location matches a saved place, that place's own
+    // marker (above) already represents it — skip the temporary one.
+    if (!searchedPlace || matchedPlace) return placeMarkers;
 
     return [
       ...placeMarkers,
@@ -79,10 +99,11 @@ export function MapScreen() {
         id: SEARCH_MARKER_ID,
         coordinates: searchedPlace.coordinates,
         title: searchedPlace.name,
+        snippet: searchedPlace.address,
         showCallout: true,
       },
     ];
-  }, [places, searchedPlace]);
+  }, [places, searchedPlace, matchedPlace]);
 
   const handleSearchSubmit = async () => {
     setSearchLoading(true);
@@ -107,11 +128,32 @@ export function MapScreen() {
   const handleSelectResult = (result: PlaceSearchResult) => {
     setSearchResults([]);
     setSearchQuery(result.name);
-    setSearchedPlace({ name: result.name, coordinates: result.coordinates });
+    setSearchedPlace(result);
     mapRef.current?.setCameraPosition({
       coordinates: result.coordinates,
       zoom: SEARCH_RESULT_ZOOM,
       duration: 300,
+    });
+  };
+
+  const handleDismissSearchedPlace = () => {
+    setSearchedPlace(null);
+    setSearchQuery("");
+  };
+
+  const handleSaveSearchedPlace = () => {
+    if (!searchedPlace) return;
+    // Opened from the Map tab, not the reminder flow's place picker — make
+    // sure a stale flag doesn't route Save back into `/add-reminder`.
+    cancelAddPlaceForReminder();
+    router.push({
+      pathname: "/add-place/details",
+      params: {
+        latitude: String(searchedPlace.coordinates.latitude),
+        longitude: String(searchedPlace.coordinates.longitude),
+        name: searchedPlace.name,
+        address: searchedPlace.address,
+      },
     });
   };
 
@@ -160,12 +202,22 @@ export function MapScreen() {
           properties={{ isMyLocationEnabled: true }}
         />
 
-        {places.length === 0 ? (
+        {places.length === 0 && !searchedPlace ? (
           <View pointerEvents="none" className="absolute inset-x-0 top-4 items-center">
             <Text className="rounded-full bg-white px-4 py-2 text-sm text-muted dark:bg-surfaceDark dark:text-mutedDark">
               No places saved yet
             </Text>
           </View>
+        ) : null}
+
+        {searchedPlace ? (
+          <SearchedPlaceCard
+            name={searchedPlace.name}
+            address={searchedPlace.address}
+            savedPlace={matchedPlace}
+            onSave={handleSaveSearchedPlace}
+            onDismiss={handleDismissSearchedPlace}
+          />
         ) : null}
       </View>
     </SafeAreaView>
