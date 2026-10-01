@@ -13,7 +13,13 @@ type PlaceRowProps = {
   onDelete?: (place: Place) => void;
 };
 
-/** A single saved-place row on the Home screen's Places tab (mockup #2). */
+/**
+ * A single saved-place row (mockup #2), shared by the Home screen's Places
+ * tab and the Add Reminder flow's Select Place screen. Row actions are
+ * opt-in (issue #90): the Delete icon only renders when `onDelete` is
+ * passed, so Select Place — which only wires up `onPress` — shows a plain,
+ * pick-only row with no leftover gap where the icon would have been.
+ */
 export function PlaceRow({ place, onPress, onDelete }: PlaceRowProps) {
   const { colorScheme } = useColorScheme();
   const isDark = colorScheme === "dark";
@@ -22,6 +28,8 @@ export function PlaceRow({ place, onPress, onDelete }: PlaceRowProps) {
   return (
     <Pressable
       onPress={() => onPress?.(place)}
+      accessibilityRole={onPress ? "button" : undefined}
+      accessibilityLabel={onPress ? place.name : undefined}
       className="flex-row items-center gap-3 px-6 py-3"
     >
       <ItemIcon icon={place.icon} color={place.color} />
@@ -32,23 +40,20 @@ export function PlaceRow({ place, onPress, onDelete }: PlaceRowProps) {
         </Text>
         <Text className="text-xs text-muted dark:text-mutedDark">{reminderLabel}</Text>
       </View>
-      <Pressable
-        onPress={() => onDelete?.(place)}
-        hitSlop={12}
-        accessibilityRole="button"
-        accessibilityLabel={`Delete place ${place.name}`}
-      >
-        <Ionicons
-          name="trash-outline"
-          size={20}
-          color={isDark ? colors.mutedDark : colors.muted}
-        />
-      </Pressable>
-      <Ionicons
-        name="chevron-forward"
-        size={20}
-        color={isDark ? colors.mutedDark : colors.muted}
-      />
+      {onDelete ? (
+        <Pressable
+          onPress={() => onDelete(place)}
+          hitSlop={12}
+          accessibilityRole="button"
+          accessibilityLabel={`Delete place ${place.name}`}
+        >
+          <Ionicons
+            name="trash-outline"
+            size={20}
+            color={isDark ? colors.mutedDark : colors.muted}
+          />
+        </Pressable>
+      ) : null}
     </Pressable>
   );
 }
