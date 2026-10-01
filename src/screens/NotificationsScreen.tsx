@@ -2,9 +2,10 @@ import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useColorScheme } from "nativewind";
 import { useCallback, useMemo, useState } from "react";
-import { Alert, Pressable, RefreshControl, SectionList, Text, View } from "react-native";
+import { Alert, RefreshControl, SectionList, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { HeaderMenu, type HeaderMenuItem } from "@/components/HeaderMenu";
 import { NotificationRow } from "@/components/NotificationRow";
 import { ReminderSectionHeader } from "@/components/ReminderSectionHeader";
 import { ScreenHeader } from "@/components/ScreenHeader";
@@ -116,32 +117,37 @@ export function NotificationsScreen() {
     );
   };
 
+  const menuItems: HeaderMenuItem[] = useMemo(() => {
+    const items: HeaderMenuItem[] = [];
+    if (unreadCount > 0) {
+      items.push({
+        key: "mark-all-read",
+        label: "Mark all as read",
+        icon: "checkmark-circle",
+        onPress: handleMarkAllRead,
+      });
+    }
+    items.push({
+      key: "clear-all",
+      label: "Clear all notifications",
+      icon: "trash",
+      destructive: true,
+      onPress: handleClear,
+    });
+    return items;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [unreadCount]);
+
   return (
     <SafeAreaView className="flex-1 bg-cream dark:bg-brand-deep" edges={["top", "left", "right"]}>
-      <ScreenHeader title="Notifications" />
-
-      {notifications.length > 0 ? (
-        <View className="flex-row gap-4 px-6 pt-4">
-          {unreadCount > 0 ? (
-            <Pressable onPress={handleMarkAllRead} className="flex-row items-center gap-1.5">
-              <Ionicons
-                name="checkmark-done-outline"
-                size={18}
-                color={isDark ? colors.white : colors.brand}
-              />
-              <Text className="text-sm font-medium text-brand dark:text-white">
-                Mark all as read
-              </Text>
-            </Pressable>
-          ) : null}
-          <Pressable onPress={handleClear} className="flex-row items-center gap-1.5">
-            <Ionicons name="trash-outline" size={18} color={colors.coral} />
-            <Text className="text-sm font-medium" style={{ color: colors.coral }}>
-              Clear
-            </Text>
-          </Pressable>
-        </View>
-      ) : null}
+      <ScreenHeader
+        title="Notifications"
+        right={
+          notifications.length > 0 ? (
+            <HeaderMenu items={menuItems} accessibilityLabel="Notification actions" />
+          ) : null
+        }
+      />
 
       <SectionList
         sections={sections}

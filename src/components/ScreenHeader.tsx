@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useColorScheme } from "nativewind";
+import type { ReactNode } from "react";
 import { Pressable, Text, View } from "react-native";
 
 import { colors } from "@/theme/colors";
@@ -8,6 +9,8 @@ type ScreenHeaderProps = {
   title: string;
   /** Renders a leading back arrow (mockup screens 3-5) when provided. */
   onBack?: () => void;
+  /** Renders a trailing element (e.g. a header menu trigger) top-right. */
+  right?: ReactNode;
 };
 
 /**
@@ -15,7 +18,7 @@ type ScreenHeaderProps = {
  * header gear icon), so this is just the title. Pushed screens (e.g. the
  * Add Place flow) pass `onBack` to show a back arrow instead.
  */
-export function ScreenHeader({ title, onBack }: ScreenHeaderProps) {
+export function ScreenHeader({ title, onBack, right }: ScreenHeaderProps) {
   const { colorScheme } = useColorScheme();
   const iconColor = colorScheme === "dark" ? colors.white : colors.brand;
 
@@ -26,7 +29,8 @@ export function ScreenHeader({ title, onBack }: ScreenHeaderProps) {
           <Ionicons name="chevron-back" size={24} color={iconColor} />
         </Pressable>
       ) : null}
-      <Text className="text-2xl font-bold text-brand dark:text-white">{title}</Text>
+      <Text className="flex-1 text-2xl font-bold text-brand dark:text-white">{title}</Text>
+      {right}
     </View>
   );
 }
