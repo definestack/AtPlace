@@ -31,6 +31,13 @@ module.exports = {
         "POST_NOTIFICATIONS",
         "FOREGROUND_SERVICE",
         "FOREGROUND_SERVICE_LOCATION",
+        // Lets expo-notifications schedule delayed arrive/leave reminders
+        // with an exact alarm instead of falling back to an inexact one that
+        // Doze can hold back by several minutes (issue #78). Granted
+        // automatically on Android 12-13; on 14+ the user grants it via
+        // Settings > Notifications > Exact timing (see
+        // `openExactAlarmSettings` in `services/notifications.ts`).
+        "SCHEDULE_EXACT_ALARM",
       ],
       config: {
         googleMaps: {
