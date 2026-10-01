@@ -133,7 +133,15 @@ export function HomeScreen() {
           <FlatList
             data={places}
             keyExtractor={(place) => place.id}
-            renderItem={({ item }) => <PlaceRow place={item} onDelete={handleDeletePlace} />}
+            renderItem={({ item }) => (
+              <PlaceRow
+                place={item}
+                onEdit={(place) =>
+                  router.push({ pathname: "/edit-place", params: { placeId: place.id } })
+                }
+                onDelete={handleDeletePlace}
+              />
+            )}
             className="flex-1"
             contentContainerClassName="pt-2"
             ListHeaderComponent={

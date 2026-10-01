@@ -29,3 +29,9 @@ export type Place = {
  * (see `db/placesRepository.ts`) since there's no radius picker UI yet.
  */
 export type NewPlace = Omit<Place, "reminderCount" | "radius"> & { radius?: number };
+
+/**
+ * Editable fields for an existing place (issue #87) — name, address and
+ * location only. Radius, icon and color aren't editable yet (no picker UI).
+ */
+export type PlaceUpdate = Pick<Place, "name" | "address" | "latitude" | "longitude">;

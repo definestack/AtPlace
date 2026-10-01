@@ -1,13 +1,19 @@
 import { create } from "zustand";
 
-import { deletePlace as deletePlaceRow, getAllPlaces, insertPlace } from "@/db/placesRepository";
-import type { NewPlace, Place } from "@/types/place";
+import {
+  deletePlace as deletePlaceRow,
+  getAllPlaces,
+  insertPlace,
+  updatePlace as updatePlaceRow,
+} from "@/db/placesRepository";
+import type { NewPlace, Place, PlaceUpdate } from "@/types/place";
 
 type PlacesState = {
   places: Place[];
   hydrated: boolean;
   hydrate: () => Promise<void>;
   addPlace: (place: NewPlace) => Promise<void>;
+  updatePlace: (id: string, changes: PlaceUpdate) => Promise<void>;
   removePlace: (id: string) => Promise<void>;
 };
 
@@ -31,6 +37,11 @@ export const usePlacesStore = create<PlacesState>((set) => ({
   },
   addPlace: async (place) => {
     await insertPlace(place);
+    const places = await getAllPlaces();
+    set({ places });
+  },
+  updatePlace: async (id, changes) => {
+    await updatePlaceRow(id, changes);
     const places = await getAllPlaces();
     set({ places });
   },
