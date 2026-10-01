@@ -42,6 +42,7 @@ export function SettingsScreen() {
   const setDeveloperModeEnabled = useSettingsStore((state) => state.setDeveloperModeEnabled);
   const loggingEnabled = useSettingsStore((state) => state.loggingEnabled);
   const setLoggingEnabled = useSettingsStore((state) => state.setLoggingEnabled);
+  const logRetentionDays = useSettingsStore((state) => state.logRetentionDays);
 
   const handleTestNotification = async () => {
     try {
@@ -103,12 +104,20 @@ export function SettingsScreen() {
               toggle={{ value: loggingEnabled, onValueChange: setLoggingEnabled }}
             />
             {loggingEnabled ? (
-              <SettingsRow
-                icon="document-text-outline"
-                label="Event Log"
-                accent
-                onPress={() => router.push("/settings-logs")}
-              />
+              <>
+                <SettingsRow
+                  icon="time-outline"
+                  label="Log retention"
+                  subtitle={logRetentionDays === 1 ? "1 day" : `${logRetentionDays} days`}
+                  onPress={() => router.push("/settings-log-retention")}
+                />
+                <SettingsRow
+                  icon="document-text-outline"
+                  label="Event Log"
+                  accent
+                  onPress={() => router.push("/settings-logs")}
+                />
+              </>
             ) : null}
             <SettingsRow
               icon="flask-outline"

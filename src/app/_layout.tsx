@@ -12,7 +12,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 // #37), not here, so the OS can find it on a headless background relaunch —
 // this route layout only runs `requestGeofencingPermissions`/`syncGeofences`.
 import { finalizeDuePending, requestGeofencingPermissions, syncGeofences } from "@/services/geofencing";
-import { logException, logInfo } from "@/services/logger";
+import { logException, logInfo, pruneExpiredLogs } from "@/services/logger";
 import { useNotificationsStore } from "@/store/notificationsStore";
 import { usePlacesStore } from "@/store/placesStore";
 import { useRemindersStore } from "@/store/remindersStore";
@@ -47,7 +47,11 @@ export default function RootLayout() {
         hydrateReminders();
         hydrateNotifications();
       });
-    hydrateSettings();
+    // Log retention cleanup (issue #89) needs the hydrated settings value, so
+    // it runs after `hydrateSettings` resolves rather than in parallel.
+    hydrateSettings().finally(() => {
+      pruneExpiredLogs();
+    });
   }, [hydrate, hydratePlaces, hydrateReminders, hydrateSettings, hydrateNotifications]);
 
   // The geofence task can deliver notifications while the app is
