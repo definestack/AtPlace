@@ -23,15 +23,16 @@ const TAB_OPTIONS: [
   { value: HomeTab; label: string },
   { value: HomeTab; label: string },
 ] = [
-  { value: "places", label: "Places" },
   { value: "reminders", label: "Reminders" },
+  { value: "places", label: "Places" },
 ];
 
 /**
  * Home screen (issue #4): saved places / reminders hub, matching mockups
  * #2 (Saved Places) and #7 (Reminders List). Places are read from
  * `usePlacesStore` (SQLite-backed, issue #7); reminders are read from
- * `useRemindersStore` (SQLite-backed, issue #8).
+ * `useRemindersStore` (SQLite-backed, issue #8). Reminders is the first and
+ * default tab (issue #91) since it's what users check most often.
  */
 export function HomeScreen() {
   const router = useRouter();
@@ -45,18 +46,28 @@ export function HomeScreen() {
     cancelAddPlaceForReminder();
     router.push("/add-place");
   };
-  // Notifications screen rows deep-link here with `?tab=reminders` (issue
-  // #40) so tapping a notification lands on the reminder it was about,
-  // rather than the default Places tab.
+  // Reminders is the default tab (issue #91). `?tab=places` is a deep link
+  // for flows that want to land on Places instead (e.g. a future entry
+  // point) — the Notifications screen still deep-links with `?tab=reminders`
+  // (issue #40), which is now a no-op confirming the default.
   const params = useLocalSearchParams<{ tab?: string }>();
-  const [tab, setTab] = useState<HomeTab>(params.tab === "reminders" ? "reminders" : "places");
+  const [tab, setTab] = useState<HomeTab>(params.tab === "places" ? "places" : "reminders");
 
   // Home is a tab screen and stays mounted, so a re-navigation here (e.g.
   // tapping a notification while already on Home) won't rerun the `useState`
-  // initializer above — react to the param on every focus instead.
+  // initializer above — react to the param on every focus instead. The param
+  // is cleared once consumed so a later refocus (e.g. switching tabs by hand
+  // after a deep link) doesn't keep forcing the same tab.
   useFocusEffect(
     useCallback(() => {
-      if (params.tab === "reminders") setTab("reminders");
+      if (params.tab === "places") {
+        setTab("places");
+        router.setParams({ tab: undefined });
+      } else if (params.tab === "reminders") {
+        setTab("reminders");
+        router.setParams({ tab: undefined });
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [params.tab]),
   );
   const places = usePlacesStore((state) => state.places);
