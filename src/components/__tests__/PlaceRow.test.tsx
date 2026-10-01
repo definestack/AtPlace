@@ -50,4 +50,22 @@ describe("PlaceRow", () => {
 
     expect(onPress).toHaveBeenCalledWith(place);
   });
+
+  it("shows no Edit action when onEdit is not passed (Select Place)", async () => {
+    await render(<PlaceRow place={place} onPress={jest.fn()} />);
+
+    expect(screen.queryByRole("button", { name: "Edit place Office" })).toBeNull();
+  });
+
+  it("shows an Edit action when onEdit is passed and calls it on press", async () => {
+    const onEdit = jest.fn();
+    await render(<PlaceRow place={place} onEdit={onEdit} />);
+
+    const editButton = screen.getByRole("button", { name: "Edit place Office" });
+    expect(editButton).toBeTruthy();
+
+    await fireEvent.press(editButton);
+
+    expect(onEdit).toHaveBeenCalledWith(place);
+  });
 });

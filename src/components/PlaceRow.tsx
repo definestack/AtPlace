@@ -10,17 +10,19 @@ import { getPlaceLocationLabel } from "@/utils/placeLocation";
 type PlaceRowProps = {
   place: Place;
   onPress?: (place: Place) => void;
+  onEdit?: (place: Place) => void;
   onDelete?: (place: Place) => void;
 };
 
 /**
  * A single saved-place row (mockup #2), shared by the Home screen's Places
  * tab and the Add Reminder flow's Select Place screen. Row actions are
- * opt-in (issue #90): the Delete icon only renders when `onDelete` is
- * passed, so Select Place — which only wires up `onPress` — shows a plain,
- * pick-only row with no leftover gap where the icon would have been.
+ * opt-in (issue #90): the Edit/Delete icons only render when `onEdit`/
+ * `onDelete` are passed, so Select Place — which only wires up `onPress` —
+ * shows a plain, pick-only row with no leftover gap where the icons would
+ * have been.
  */
-export function PlaceRow({ place, onPress, onDelete }: PlaceRowProps) {
+export function PlaceRow({ place, onPress, onEdit, onDelete }: PlaceRowProps) {
   const { colorScheme } = useColorScheme();
   const isDark = colorScheme === "dark";
   const reminderLabel = `${place.reminderCount} reminder${place.reminderCount === 1 ? "" : "s"}`;
@@ -40,6 +42,20 @@ export function PlaceRow({ place, onPress, onDelete }: PlaceRowProps) {
         </Text>
         <Text className="text-xs text-muted dark:text-mutedDark">{reminderLabel}</Text>
       </View>
+      {onEdit ? (
+        <Pressable
+          onPress={() => onEdit(place)}
+          hitSlop={12}
+          accessibilityRole="button"
+          accessibilityLabel={`Edit place ${place.name}`}
+        >
+          <Ionicons
+            name="create-outline"
+            size={20}
+            color={isDark ? colors.mutedDark : colors.muted}
+          />
+        </Pressable>
+      ) : null}
       {onDelete ? (
         <Pressable
           onPress={() => onDelete(place)}

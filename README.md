@@ -114,6 +114,7 @@ src/
 - Home, Work, School, Gym, or custom places
 - Created by saving current location, selecting on map, or saving a place found via Map search
 - Configurable geofence radius
+- Name, address and location can be edited after saving (via the Edit icon on a place row) without losing the place's reminders; moving a place re-syncs its geofence
 
 **Geofencing**
 - Detects when user enters location boundary

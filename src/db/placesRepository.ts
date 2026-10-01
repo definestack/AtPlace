@@ -1,5 +1,5 @@
 import { getDatabase } from "@/db/database";
-import type { NewPlace, Place, PlaceColor, PlaceIconName } from "@/types/place";
+import type { NewPlace, Place, PlaceColor, PlaceIconName, PlaceUpdate } from "@/types/place";
 
 /** Default geofence trigger radius (meters) for places created without one. */
 export const DEFAULT_GEOFENCE_RADIUS_M = 150;
@@ -47,6 +47,24 @@ export async function insertPlace(place: NewPlace): Promise<void> {
     place.color,
     place.radius ?? DEFAULT_GEOFENCE_RADIUS_M,
     Date.now(),
+  );
+}
+
+/**
+ * Updates a place's editable fields — name, address and location (issue #87).
+ * A plain `UPDATE … WHERE id = ?`: the id never changes and `reminders` is
+ * never touched, so a place's reminders (ids, settings, count) are
+ * untouched. Callers re-sync geofences afterwards if the location moved.
+ */
+export async function updatePlace(id: string, changes: PlaceUpdate): Promise<void> {
+  const db = await getDatabase();
+  await db.runAsync(
+    `UPDATE places SET name = ?, address = ?, latitude = ?, longitude = ? WHERE id = ?`,
+    changes.name,
+    changes.address ?? null,
+    changes.latitude,
+    changes.longitude,
+    id,
   );
 }
 

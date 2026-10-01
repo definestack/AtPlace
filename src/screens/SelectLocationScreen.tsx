@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { GoogleMaps } from "expo-maps";
 import { useColorScheme } from "nativewind";
 import { useEffect, useRef, useState } from "react";
@@ -17,6 +17,7 @@ import {
   reverseGeocode,
 } from "@/services/location";
 import { PlacesSearchError, searchPlaces } from "@/services/placesSearch";
+import { usePlaceLocationPickStore } from "@/store/placeLocationPickStore";
 import { colors } from "@/theme/colors";
 import type { Coordinates, PlaceSearchResult } from "@/types/location";
 
@@ -31,15 +32,35 @@ const INITIAL_ZOOM = 16;
  * `GoogleMaps.View` has no marker drag-end event, so a center-fixed pin +
  * `onCameraMove` is the reliable way to capture the selection). Tapping the
  * map or searching an address re-centers the camera onto that pin.
+ *
+ * In `mode=pick` (issue #87, used by Edit Place's "Change Location"), the
+ * screen starts centered on the given `latitude`/`longitude` instead of the
+ * device's GPS position, and Save hands the picked location back via
+ * `placeLocationPickStore` + `router.back()` instead of pushing forward into
+ * the Add Place flow.
  */
 export function SelectLocationScreen() {
   const router = useRouter();
   const { colorScheme } = useColorScheme();
+  const params = useLocalSearchParams<{ mode?: string; latitude?: string; longitude?: string }>();
+  const isPickMode = params.mode === "pick";
+  const setPicked = usePlaceLocationPickStore((state) => state.setPicked);
   const mapRef = useRef<GoogleMaps.MapView>(null);
   const reverseGeocodeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasCustomName = useRef(false);
 
-  const [initialCoords, setInitialCoords] = useState<Coordinates | null>(null);
+  // The caller's coordinates when given (pick mode, or Add Place's "Change
+  // Location" which already has a location to re-center on) resolve
+  // synchronously as the initial state — only the GPS fallback below needs
+  // an effect.
+  const [initialCoords, setInitialCoords] = useState<Coordinates | null>(() => {
+    const paramLatitude = parseFloat(params.latitude ?? "");
+    const paramLongitude = parseFloat(params.longitude ?? "");
+    if (!Number.isNaN(paramLatitude) && !Number.isNaN(paramLongitude)) {
+      return { latitude: paramLatitude, longitude: paramLongitude };
+    }
+    return null;
+  });
   const [pinCoords, setPinCoords] = useState<Coordinates | null>(null);
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");
@@ -48,9 +69,12 @@ export function SelectLocationScreen() {
   const [searchResults, setSearchResults] = useState<PlaceSearchResult[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
 
-  // Resolve the starting region once: current GPS location, falling back to
-  // a default region if permission is denied (mirrors AddPlaceScreen).
+  // Resolve the starting region from current GPS, falling back to a default
+  // region if permission is denied (mirrors AddPlaceScreen) — skipped
+  // entirely when the caller already supplied coordinates above.
   useEffect(() => {
+    if (initialCoords) return;
+
     let cancelled = false;
     (async () => {
       try {
@@ -63,6 +87,7 @@ export function SelectLocationScreen() {
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally one-shot on mount
   }, []);
 
   useEffect(() => {
@@ -169,6 +194,15 @@ export function SelectLocationScreen() {
   const handleSave = () => {
     const coords = pinCoords ?? initialCoords;
     if (!coords) return;
+
+    if (isPickMode) {
+      // Hand the picked location back to the caller (Edit Place) already on
+      // the stack, instead of pushing forward into the Add Place flow.
+      setPicked({ latitude: coords.latitude, longitude: coords.longitude, address });
+      router.back();
+      return;
+    }
+
     router.push({
       pathname: "/add-place/details",
       params: {
