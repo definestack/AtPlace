@@ -74,6 +74,28 @@ export function describeError(error: unknown): string {
   return parts.join("\n");
 }
 
+/**
+ * Formats an epoch-ms timestamp as local-time ISO 8601 with a UTC offset
+ * (e.g. `2026-10-01T07:07:58.039+05:30`), unlike `Date#toISOString()` which
+ * always converts to UTC (`Z`). Used for the exported Event Log (issue #77)
+ * so entries are readable without manual timezone conversion, while
+ * `createdAt` (epoch ms) is kept alongside for sorting.
+ */
+export function formatIsoTimestamp(ms: number): string {
+  const date = new Date(ms);
+  const pad = (value: number, length = 2) => String(value).padStart(length, "0");
+
+  const datePart = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+  const timePart = `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}.${pad(date.getMilliseconds(), 3)}`;
+
+  const offsetMinutes = -date.getTimezoneOffset();
+  const offsetSign = offsetMinutes >= 0 ? "+" : "-";
+  const absOffset = Math.abs(offsetMinutes);
+  const offsetPart = `${offsetSign}${pad(Math.floor(absOffset / 60))}:${pad(absOffset % 60)}`;
+
+  return `${datePart}T${timePart}${offsetPart}`;
+}
+
 /** One parsed line of a log's `detail` text — labelled (`Label: value`) or free-form. */
 export type LogDetailLine = { label?: string; value: string };
 

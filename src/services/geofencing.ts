@@ -276,6 +276,7 @@ export async function finalizeDuePending(): Promise<void> {
         Reminder: reminder.title,
         Place: reminder.placeName,
         "Region ID": placeId,
+        Trigger: entry.trigger,
       });
       await logNotification(`Presented "${reminder.title}"`, deliveryDetail);
 
@@ -319,7 +320,7 @@ type GeofenceTaskData = {
  */
 async function logVibrationOutcome(
   reminder: ActiveReminderSummary,
-  regionDetail: { Place: string; "Region ID": string },
+  regionDetail: { Place: string; "Region ID": string; Trigger: ReminderTrigger },
   vibration: boolean,
   sound: boolean,
   delaySeconds: number,
@@ -424,7 +425,11 @@ TaskManager.defineTask<GeofenceTaskData>(GEOFENCE_TASK_NAME, async ({ data, erro
       "Region ID": placeId,
     });
   }
-  const regionDetail = { Place: placeName ?? "Unknown place (deleted?)", "Region ID": placeId };
+  const regionDetail = {
+    Place: placeName ?? "Unknown place (deleted?)",
+    "Region ID": placeId,
+    Trigger: trigger,
+  };
 
   await logGeofence(`${trigger === "arrive" ? "Entered" : "Exited"} region`, formatLogDetail(regionDetail));
 
@@ -530,10 +535,7 @@ TaskManager.defineTask<GeofenceTaskData>(GEOFENCE_TASK_NAME, async ({ data, erro
       getNotificationVibration(),
     ]);
     if (reminders.length === 0) {
-      await logGeofence(
-        "No active reminders for this transition",
-        formatLogDetail({ ...regionDetail, Trigger: trigger }),
-      );
+      await logGeofence("No active reminders for this transition", formatLogDetail(regionDetail));
       return;
     }
 
@@ -569,10 +571,7 @@ TaskManager.defineTask<GeofenceTaskData>(GEOFENCE_TASK_NAME, async ({ data, erro
       await finalizeDuePending();
     }
   } catch (err) {
-    await logException("Failed to present reminder notification", err, {
-      ...regionDetail,
-      Trigger: trigger,
-    });
+    await logException("Failed to present reminder notification", err, regionDetail);
   }
 });
 
