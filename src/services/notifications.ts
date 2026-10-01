@@ -1,5 +1,5 @@
 import * as Notifications from "expo-notifications";
-import { Platform } from "react-native";
+import { Linking, Platform } from "react-native";
 
 import type { ReminderTrigger } from "@/types/reminder";
 
@@ -194,6 +194,26 @@ export async function checkChannelVibration(channelId: string): Promise<Vibratio
     };
   }
   return { supported: true, willVibrate: true, channelId };
+}
+
+/**
+ * Opens the system screen where the user grants "Alarms & reminders" (issue
+ * #78): on Android 14+ (API 34+), apps no longer get `SCHEDULE_EXACT_ALARM`
+ * automatically, so delayed arrive/leave notifications fall back to an
+ * inexact alarm that Doze can hold back by several minutes unless the user
+ * grants this manually. A no-op on earlier Android (where the manifest
+ * permission in `app.config.js` is enough) and on iOS/web. Falls back to the
+ * app's general settings page if the dedicated intent isn't handled (e.g. an
+ * OEM variant without that screen), so the row always does something.
+ */
+export async function openExactAlarmSettings(): Promise<void> {
+  if (Platform.OS !== "android" || Platform.Version < 31) return;
+
+  try {
+    await Linking.sendIntent("android.settings.REQUEST_SCHEDULE_EXACT_ALARM");
+  } catch {
+    await Linking.openSettings();
+  }
 }
 
 /**

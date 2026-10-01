@@ -37,7 +37,13 @@ export function logGeofence(message: string, detail?: string): Promise<void> {
   return log("geofence", message, detail);
 }
 
-/** Logs a notification delivered or suppressed. */
+/**
+ * Logs a notification scheduled, delivered or suppressed. For a delayed
+ * delivery, "delivered" means the app recorded its own bookkeeping for it —
+ * not necessarily when Android actually showed it, which the app can't
+ * observe directly (issue #78; see `finalizeDuePending` in
+ * `services/geofencing.ts`).
+ */
 export function logNotification(message: string, detail?: string): Promise<void> {
   return log("notification", message, detail);
 }

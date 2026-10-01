@@ -31,7 +31,7 @@ import {
 } from "@/store/settingsStore";
 import type { ReminderTrigger } from "@/types/reminder";
 import { distanceMeters } from "@/utils/geo";
-import { formatLogDetail } from "@/utils/logFormat";
+import { formatIsoTimestamp, formatLogDetail, joinLogDetail } from "@/utils/logFormat";
 import { resolveOverride } from "@/utils/notificationPrefs";
 
 /** Background task name — must match between `defineTask` and start/stopGeofencingAsync. */
@@ -244,6 +244,13 @@ export function planTransition(
  * delivery is finalized as part of handling its next transition) and from
  * `_layout.tsx` on launch/foreground (issue #40: so the inbox reflects a
  * delayed notification that fired while the app was closed).
+ *
+ * Note (issue #78): this can run well after `entry.fireAt`, since nothing
+ * wakes the JS runtime when a scheduled notification's delay elapses on its
+ * own — only the next geofence event or app foreground does. So the Event
+ * Log row this writes is deliberately *not* called "Presented": it records
+ * that the app caught up its bookkeeping for a delivery the OS already
+ * handled at (or near) `entry.fireAt`, not when the user actually saw it.
  */
 export async function finalizeDuePending(): Promise<void> {
   const now = Date.now();
@@ -278,7 +285,20 @@ export async function finalizeDuePending(): Promise<void> {
         "Region ID": placeId,
         Trigger: entry.trigger,
       });
-      await logNotification(`Presented "${reminder.title}"`, deliveryDetail);
+      // "Recorded after" is how late this bookkeeping ran past the scheduled
+      // fire time — not how late the OS notification itself was, which the
+      // app has no way to observe (see the doc comment above).
+      await logNotification(
+        `Recorded delivery of "${reminder.title}"`,
+        joinLogDetail(
+          deliveryDetail,
+          formatLogDetail({
+            "Scheduled for": formatIsoTimestamp(entry.fireAt),
+            "Recorded after": `${Math.round((now - entry.fireAt) / 1000)}s past scheduled time`,
+            Note: "Android shows the notification at the scheduled time; this row is written when the app next runs",
+          }),
+        ),
+      );
 
       // One-time reminders (issue #53) go inactive after firing once — shown
       // as disabled rather than deleted, so notification history is kept.
@@ -557,11 +577,14 @@ TaskManager.defineTask<GeofenceTaskData>(GEOFENCE_TASK_NAME, async ({ data, erro
       await logVibrationOutcome(reminder, regionDetail, vibration, sound, delaySeconds);
     }
 
-    pendingState[placeId] = { trigger, fireAt: now + decision.delayMs, notificationIds, reminders };
+    const fireAt = now + decision.delayMs;
+    pendingState[placeId] = { trigger, fireAt, notificationIds, reminders };
     await setPendingState(pendingState);
     await logGeofence(
       delaySeconds > 0 ? `Scheduled ${trigger} notification(s) in ${delaySeconds}s` : `Scheduled ${trigger} notification(s)`,
-      formatLogDetail(regionDetail),
+      delaySeconds > 0
+        ? joinLogDetail(formatLogDetail(regionDetail), formatLogDetail({ "Fires at": formatIsoTimestamp(fireAt) }))
+        : formatLogDetail(regionDetail),
     );
 
     // Delay of 0 ("Immediately") elapses instantly — finalize right away
