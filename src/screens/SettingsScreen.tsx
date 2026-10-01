@@ -26,6 +26,12 @@ const UNITS_LABEL: Record<"km" | "mi", string> = {
  * Settings screen (footer tab, mockup #10): notifications, units and app
  * theme drill-ins, backup & restore, and about — each backed by
  * `settingsStore`/`themeStore` so changes persist and apply immediately.
+ *
+ * In Developer mode, Event Log is only shown while Logging is also on
+ * (issue #80) — it has nothing to show otherwise, and leaving it visible
+ * implied logs were still being collected. Test Notification is a one-shot
+ * action rather than a drill-in, so it's rendered without a chevron (issue
+ * #81; see `SettingsRow`'s `action` prop).
  */
 export function SettingsScreen() {
   const router = useRouter();
@@ -96,13 +102,21 @@ export function SettingsScreen() {
               label="Logging"
               toggle={{ value: loggingEnabled, onValueChange: setLoggingEnabled }}
             />
+            {loggingEnabled ? (
+              <SettingsRow
+                icon="document-text-outline"
+                label="Event Log"
+                accent
+                onPress={() => router.push("/settings-logs")}
+              />
+            ) : null}
             <SettingsRow
-              icon="document-text-outline"
-              label="Event Log"
+              icon="flask-outline"
+              label="Test Notification"
               accent
-              onPress={() => router.push("/settings-logs")}
+              action
+              onPress={handleTestNotification}
             />
-            <SettingsRow icon="flask-outline" label="Test Notification" accent onPress={handleTestNotification} />
           </>
         ) : null}
         <SettingsRow
