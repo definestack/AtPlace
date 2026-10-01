@@ -11,7 +11,7 @@ import { ScreenHeader } from "@/components/ScreenHeader";
 import { deleteAllLogs, getRecentLogs } from "@/db/logsRepository";
 import { colors } from "@/theme/colors";
 import type { LogCategory, LogEntry } from "@/types/log";
-import { parseLogDetail } from "@/utils/logFormat";
+import { formatIsoTimestamp, parseLogDetail } from "@/utils/logFormat";
 
 const LOGS_FILE_NAME = "atplace-logs.json";
 
@@ -142,9 +142,13 @@ export function LogsScreen() {
       if (!(await Sharing.isAvailableAsync())) {
         throw new Error("Sharing isn't available on this device.");
       }
+      // `createdAt` (epoch ms) is kept for sorting; `timestamp` is added here,
+      // at export time, so every entry gets a human-readable time no matter
+      // which code path originally wrote it (issue #77).
+      const exportLogs = logs.map((log) => ({ ...log, timestamp: formatIsoTimestamp(log.createdAt) }));
       const file = new File(Paths.cache, LOGS_FILE_NAME);
       file.create({ overwrite: true });
-      file.write(JSON.stringify(logs, null, 2));
+      file.write(JSON.stringify(exportLogs, null, 2));
       await Sharing.shareAsync(file.uri, {
         mimeType: "application/json",
         dialogTitle: "Share At Place event log",
