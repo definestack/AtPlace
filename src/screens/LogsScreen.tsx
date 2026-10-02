@@ -18,6 +18,7 @@ const CATEGORY_LABEL: Record<LogCategory, string> = {
   geofence: "Geofence",
   notification: "Notification",
   vibration: "Vibration",
+  app: "App",
   exception: "Error",
   info: "Info",
 };
@@ -26,6 +27,7 @@ const CATEGORY_COLOR: Record<LogCategory, string> = {
   geofence: colors.brandLight,
   notification: colors.teal,
   vibration: colors.plum,
+  app: colors.mint,
   exception: colors.coral,
   info: colors.muted,
 };

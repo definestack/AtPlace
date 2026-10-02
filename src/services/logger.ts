@@ -78,6 +78,11 @@ export function logVibration(message: string, detail?: string): Promise<void> {
   return log("vibration", message, detail);
 }
 
+/** Logs an app lifecycle event — JS runtime start, foreground/background, notification tap. */
+export function logApp(message: string, detail?: string): Promise<void> {
+  return log("app", message, detail);
+}
+
 /**
  * Logs an unexpected error, capturing its type/message/cause-chain/stack
  * (issue #70) as `detail`, alongside optional `context` describing the

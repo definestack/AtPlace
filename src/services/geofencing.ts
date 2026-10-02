@@ -11,6 +11,8 @@ import {
   type ActiveReminderSummary,
   type GeofenceRegion,
 } from "@/db/remindersRepository";
+import { describeAppState } from "@/services/appLifecycle";
+import { diagnoseDelivery, loadDeliverySnapshot, type AlertPrefs } from "@/services/deliveryDiagnostics";
 import { logException, logGeofence, logNotification, logVibration } from "@/services/logger";
 import { LocationPermissionDeniedError } from "@/services/location";
 import {
@@ -117,6 +119,11 @@ type PendingDelivery = {
   fireAt: number;
   notificationIds: string[];
   reminders: ActiveReminderSummary[];
+  /**
+   * Resolved sound/vibration per reminder (same order as `reminders`), for
+   * delivery diagnostics. Optional: absent in state written by older builds.
+   */
+  alerts?: AlertPrefs[];
 };
 
 type PendingState = Record<string, PendingDelivery>;
@@ -258,9 +265,13 @@ export async function finalizeDuePending(): Promise<void> {
   const dueEntries = Object.entries(pendingState).filter(([, entry]) => entry.fireAt <= now);
   if (dueEntries.length === 0) return;
 
+  // Read the tray/schedule once so each delivery below can report whether
+  // Android actually showed it (see `services/deliveryDiagnostics.ts`).
+  const snapshot = await loadDeliverySnapshot();
+
   let disabledOneTimeReminder = false;
   for (const [placeId, entry] of dueEntries) {
-    for (const reminder of entry.reminders) {
+    for (const [index, reminder] of entry.reminders.entries()) {
       // Persist a notification-inbox row alongside the OS notification
       // (issue #40), so the in-app Notifications screen has a record of
       // deliveries that happened while the app was closed. A denormalized
@@ -295,10 +306,25 @@ export async function finalizeDuePending(): Promise<void> {
           formatLogDetail({
             "Scheduled for": formatIsoTimestamp(entry.fireAt),
             "Recorded after": `${Math.round((now - entry.fireAt) / 1000)}s past scheduled time`,
-            Note: "Android shows the notification at the scheduled time; this row is written when the app next runs",
+            "App state": describeAppState(),
+            Note: "Written when the app next runs; see the \"Android showed\" row for when Android actually showed it",
           }),
         ),
       );
+
+      const notificationId = entry.notificationIds[index];
+      if (snapshot && notificationId) {
+        await diagnoseDelivery(
+          {
+            notificationId,
+            title: reminder.title,
+            fireAt: entry.fireAt,
+            prefs: entry.alerts?.[index],
+            regionDetail: { Place: reminder.placeName, "Region ID": placeId, Trigger: entry.trigger },
+          },
+          snapshot,
+        );
+      }
 
       // One-time reminders (issue #53) go inactive after firing once — shown
       // as disabled rather than deleted, so notification history is kept.
@@ -334,7 +360,7 @@ type GeofenceTaskData = {
  * it's on — the real state of the Android notification channel it's
  * delivered through (see `checkChannelVibration`); a device in silent/DND
  * mode can still suppress vibration even when everything checked here looks
- * fine, which the "handed to Android" row notes. Never throws — a logging
+ * fine, which the "scheduled with Android" row notes. Never throws — a logging
  * failure here must not affect the reminder notification that already
  * scheduled successfully.
  */
@@ -394,13 +420,15 @@ async function logVibrationOutcome(
       return;
     }
 
+    // Scheduling only — whether Android actually vibrated is logged once the
+    // notification is shown (see `services/deliveryDiagnostics.ts`).
     await logVibration(
-      "Vibration handed to Android",
+      "Vibration scheduled with Android",
       formatLogDetail({
         ...baseDetail,
         Channel: check.channelId,
         "Fires in": `${delaySeconds}s`,
-        Note: "Device silent/DND mode may still suppress it",
+        Note: "Not vibrated yet — a \"Vibration triggered\" or \"Vibration not triggered\" row follows once Android shows it",
       }),
     );
   } catch (err) {
@@ -451,7 +479,10 @@ TaskManager.defineTask<GeofenceTaskData>(GEOFENCE_TASK_NAME, async ({ data, erro
     Trigger: trigger,
   };
 
-  await logGeofence(`${trigger === "arrive" ? "Entered" : "Exited"} region`, formatLogDetail(regionDetail));
+  await logGeofence(
+    `${trigger === "arrive" ? "Entered" : "Exited"} region`,
+    formatLogDetail({ ...regionDetail, "App state": describeAppState() }),
+  );
 
   try {
     // Catch up any earlier pending delivery whose delay already elapsed
@@ -561,6 +592,7 @@ TaskManager.defineTask<GeofenceTaskData>(GEOFENCE_TASK_NAME, async ({ data, erro
 
     const delaySeconds = Math.round(decision.delayMs / 1000);
     const notificationIds: string[] = [];
+    const alerts: AlertPrefs[] = [];
     for (const reminder of reminders) {
       const sound = resolveOverride(reminder.sound, globalSound);
       const vibration = resolveOverride(reminder.vibration, globalVibration);
@@ -573,18 +605,22 @@ TaskManager.defineTask<GeofenceTaskData>(GEOFENCE_TASK_NAME, async ({ data, erro
         delaySeconds,
       );
       notificationIds.push(id);
+      alerts.push({ sound, vibration });
 
       await logVibrationOutcome(reminder, regionDetail, vibration, sound, delaySeconds);
     }
 
     const fireAt = now + decision.delayMs;
-    pendingState[placeId] = { trigger, fireAt, notificationIds, reminders };
+    pendingState[placeId] = { trigger, fireAt, notificationIds, reminders, alerts };
     await setPendingState(pendingState);
     await logGeofence(
       delaySeconds > 0 ? `Scheduled ${trigger} notification(s) in ${delaySeconds}s` : `Scheduled ${trigger} notification(s)`,
       delaySeconds > 0
-        ? joinLogDetail(formatLogDetail(regionDetail), formatLogDetail({ "Fires at": formatIsoTimestamp(fireAt) }))
-        : formatLogDetail(regionDetail),
+        ? joinLogDetail(
+            formatLogDetail(regionDetail),
+            formatLogDetail({ "Fires at": formatIsoTimestamp(fireAt), "App state": describeAppState() }),
+          )
+        : formatLogDetail({ ...regionDetail, "App state": describeAppState() }),
     );
 
     // Delay of 0 ("Immediately") elapses instantly — finalize right away

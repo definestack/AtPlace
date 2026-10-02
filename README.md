@@ -128,9 +128,10 @@ src/
 
 **Developer Mode**
 - Hidden diagnostics for troubleshooting, accessed via Settings > About
-- Includes a **Logging** toggle (off by default) that gates diagnostic log entries (geofence, notification, vibration, info); unexpected errors are always logged regardless of this setting
+- Includes a **Logging** toggle (off by default) that gates diagnostic log entries (geofence, notification, vibration, app lifecycle, info); unexpected errors are always logged regardless of this setting
 - While Logging is on, **Log retention** sets how many days of entries to keep (default 5, range 1-15); entries older than that are deleted automatically on app launch and whenever a new entry is written, independent of the existing 500-row cap
 - Diagnostic logs are viewable in Settings > Event Log while Developer Mode is enabled
+- Delivery diagnostics: the log records whether the app was open, in the background or closed for each event, when Android actually showed each reminder (read from the notification tray, so it works even if the app was closed), and whether vibration was triggered — or the reason it wasn't (vibration off, permission, Do Not Disturb, channel muted, or the alarm deferred by Android)
 
 ### Database
 

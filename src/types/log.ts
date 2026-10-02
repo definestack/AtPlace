@@ -1,5 +1,5 @@
 /** What kind of event a log row records — see `services/logger.ts`. */
-export type LogCategory = "geofence" | "notification" | "vibration" | "exception" | "info";
+export type LogCategory = "geofence" | "notification" | "vibration" | "app" | "exception" | "info";
 
 /**
  * A single diagnostic event (issue #37, extended in #70): geofence
