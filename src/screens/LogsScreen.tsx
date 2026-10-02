@@ -1,12 +1,11 @@
-import { Ionicons } from "@expo/vector-icons";
 import { File, Paths } from "expo-file-system";
 import { useFocusEffect, useRouter } from "expo-router";
 import * as Sharing from "expo-sharing";
-import { useColorScheme } from "nativewind";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Alert, FlatList, Pressable, RefreshControl, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { HeaderMenu, type HeaderMenuItem } from "@/components/HeaderMenu";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { deleteAllLogs, getRecentLogs } from "@/db/logsRepository";
 import { colors } from "@/theme/colors";
@@ -112,8 +111,6 @@ function LogRow({ log }: { log: LogEntry }) {
  */
 export function LogsScreen() {
   const router = useRouter();
-  const { colorScheme } = useColorScheme();
-  const iconColor = colorScheme === "dark" ? colors.white : colors.brand;
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -174,21 +171,28 @@ export function LogsScreen() {
     ]);
   };
 
+  const menuItems: HeaderMenuItem[] = useMemo(
+    () => [
+      { key: "share", label: "Share event log", icon: "share-outline", onPress: handleShare },
+      {
+        key: "clear",
+        label: "Clear event log",
+        icon: "trash-outline",
+        destructive: true,
+        onPress: handleClear,
+      },
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [logs],
+  );
+
   return (
     <SafeAreaView className="flex-1 bg-cream dark:bg-brand-deep" edges={["top", "left", "right"]}>
-      <ScreenHeader title="Event Log" onBack={() => router.back()} />
-      <View className="flex-row gap-4 px-6 pt-4">
-        <Pressable onPress={handleShare} className="flex-row items-center gap-1.5">
-          <Ionicons name="share-outline" size={18} color={iconColor} />
-          <Text className="text-sm font-medium text-brand dark:text-white">Share</Text>
-        </Pressable>
-        <Pressable onPress={handleClear} className="flex-row items-center gap-1.5">
-          <Ionicons name="trash-outline" size={18} color={colors.coral} />
-          <Text className="text-sm font-medium" style={{ color: colors.coral }}>
-            Clear
-          </Text>
-        </Pressable>
-      </View>
+      <ScreenHeader
+        title="Event Log"
+        onBack={() => router.back()}
+        right={<HeaderMenu items={menuItems} accessibilityLabel="Event log actions" />}
+      />
 
       <FlatList
         data={logs}
