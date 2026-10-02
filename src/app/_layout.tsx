@@ -1,5 +1,6 @@
 import "../global.css";
 
+import * as Notifications from "expo-notifications";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useColorScheme } from "nativewind";
@@ -11,6 +12,8 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 // The background geofence task itself is registered from `index.js` (issue
 // #37), not here, so the OS can find it on a headless background relaunch —
 // this route layout only runs `requestGeofencingPermissions`/`syncGeofences`.
+import { startAppLifecycleLogging } from "@/services/appLifecycle";
+import { logNotificationTapped, logPresentedWhileOpen } from "@/services/deliveryDiagnostics";
 import { finalizeDuePending, requestGeofencingPermissions, syncGeofences } from "@/services/geofencing";
 import { logException, logInfo, pruneExpiredLogs } from "@/services/logger";
 import { useNotificationsStore } from "@/store/notificationsStore";
@@ -75,6 +78,26 @@ export default function RootLayout() {
     });
     return () => subscription.remove();
   }, [hydrateReminders, hydrateNotifications]);
+
+  // Event Log diagnostics: app open/background transitions, plus the moment
+  // Android shows a reminder (and vibrates) while the app is open, and taps
+  // — including the tap that launched the app from closed.
+  useEffect(() => {
+    const stopLifecycleLogging = startAppLifecycleLogging();
+    const received = Notifications.addNotificationReceivedListener((notification) => {
+      void logPresentedWhileOpen(notification);
+    });
+    const responses = Notifications.addNotificationResponseReceivedListener((response) => {
+      void logNotificationTapped(response);
+    });
+    const launchResponse = Notifications.getLastNotificationResponse();
+    if (launchResponse) void logNotificationTapped(launchResponse);
+    return () => {
+      stopLifecycleLogging();
+      received.remove();
+      responses.remove();
+    };
+  }, []);
 
   useEffect(() => {
     setColorScheme(mode);

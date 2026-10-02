@@ -11,14 +11,23 @@ import type { ReminderTrigger } from "@/types/reminder";
  * so foreground delivery honors the same resolved sound setting as
  * background delivery (issue #51); defaults to `true` for notifications
  * without the flag.
+ *
+ * expo-notifications' Android builder also gates *vibration* on
+ * `shouldPlaySound` (`ExpoNotificationBuilder.shouldVibrate`), so a
+ * vibration-only reminder must still return `true` here or it is posted
+ * fully silent. The channel (`channelFor`) still decides whether a sound
+ * actually plays, so this never adds sound to a vibration-only reminder.
  */
 Notifications.setNotificationHandler({
-  handleNotification: async (notification) => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: notification.request.content.data?.sound !== false,
-    shouldSetBadge: false,
-  }),
+  handleNotification: async (notification) => {
+    const data = notification.request.content.data;
+    return {
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: data?.sound !== false || data?.vibration === true,
+      shouldSetBadge: false,
+    };
+  },
 });
 
 /**
@@ -41,7 +50,13 @@ export const REMINDER_CHANNEL_SILENT = "atplace-reminders-silent";
  */
 const LEGACY_REMINDER_CHANNEL = "atplace-reminders";
 
-/** A short, noticeable vibration pattern for channels with vibration enabled. */
+/**
+ * A short, noticeable vibration pattern for channels with vibration enabled.
+ * Also set on the notification content itself: expo-notifications only
+ * treats a notification as vibrating when its content carries a pattern, and
+ * silences it outright (overriding the channel) when it neither vibrates nor
+ * plays a sound — which is what made vibration-only reminders never vibrate.
+ */
 const VIBRATION_PATTERN = [0, 250, 250, 250];
 
 /** Picks the channel matching a resolved sound/vibration combination. */
@@ -128,21 +143,24 @@ export async function presentReminderNotification(
 ): Promise<string> {
   const title = trigger === "arrive" ? `You're at ${placeName}` : `Leaving ${placeName}`;
 
+  const channelId = channelFor(sound, vibration);
+
   return await Notifications.scheduleNotificationAsync({
     content: {
       title,
       body: reminderTitle,
       sound: sound ? "default" : false,
-      data: { sound },
+      ...(vibration ? { vibrate: VIBRATION_PATTERN } : {}),
+      data: { sound, vibration, channelId },
     },
     trigger:
       delaySeconds > 0
         ? {
             type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
             seconds: delaySeconds,
-            channelId: channelFor(sound, vibration),
+            channelId,
           }
-        : { channelId: channelFor(sound, vibration) },
+        : { channelId },
   });
 }
 
@@ -185,15 +203,77 @@ export async function checkChannelVibration(channelId: string): Promise<Vibratio
       reason: "Vibration is turned off for this channel in Android's notification settings",
     };
   }
-  if (channel.importance <= Notifications.AndroidImportance.MIN) {
+  // Android only alerts (sound/vibration) at DEFAULT importance or above —
+  // a channel the user switched to "Silent" in system settings drops to LOW
+  // and posts without vibrating.
+  if (channel.importance < Notifications.AndroidImportance.DEFAULT) {
     return {
       supported: true,
       willVibrate: false,
       channelId,
-      reason: "This channel's notification importance is too low for Android to vibrate",
+      reason: `This channel's importance (${describeImportance(channel.importance)}) is too low for Android to vibrate — it may be set to "Silent" in Android's notification settings`,
     };
   }
   return { supported: true, willVibrate: true, channelId };
+}
+
+function describeImportance(importance: Notifications.AndroidImportance): string {
+  return Notifications.AndroidImportance[importance] ?? String(importance);
+}
+
+/**
+ * Device-wide state that can stop Android from vibrating even when the
+ * channel allows it (diagnostics only). `dndReason` is set when Do Not
+ * Disturb is filtering notifications. Ringer mode (silent/vibrate) and
+ * Android 15's notification cooldown aren't exposed to apps, so they can't
+ * be reported here.
+ */
+export type DeviceAlertState = {
+  permissionGranted: boolean;
+  doNotDisturb: string;
+  dndReason?: string;
+};
+
+/** Android `NotificationManager.INTERRUPTION_FILTER_*` values. */
+function describeInterruptionFilter(filter: number | undefined): { label: string; blocks: boolean } {
+  switch (filter) {
+    case 1:
+      return { label: "off", blocks: false };
+    case 2:
+      return { label: "on (priority only)", blocks: true };
+    case 3:
+      return { label: "on (total silence)", blocks: true };
+    case 4:
+      return { label: "on (alarms only)", blocks: true };
+    default:
+      return { label: "unknown", blocks: false };
+  }
+}
+
+/** Reads notification permission and Do Not Disturb state right now. */
+export async function getDeviceAlertState(): Promise<DeviceAlertState> {
+  const status = await Notifications.getPermissionsAsync();
+  const dnd = describeInterruptionFilter(status.android?.interruptionFilter);
+  return {
+    permissionGranted: status.granted,
+    doNotDisturb: dnd.label,
+    dndReason: dnd.blocks ? `Do Not Disturb is ${dnd.label}, which blocks this app's notifications` : undefined,
+  };
+}
+
+/** A notification currently shown in the Android notification tray, with the time Android posted it. */
+export type PresentedNotification = { id: string; postedAt: number };
+
+/** Notifications currently in the tray (Android records when each one was actually posted). */
+export async function getPresentedNotifications(): Promise<PresentedNotification[]> {
+  const presented = await Notifications.getPresentedNotificationsAsync();
+  return presented.map((n) => ({ id: n.request.identifier, postedAt: n.date }));
+}
+
+/** Ids of notifications still waiting for their alarm to fire. */
+export async function getScheduledNotificationIds(): Promise<string[]> {
+  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+  return scheduled.map((request) => request.identifier);
 }
 
 /**
@@ -241,7 +321,8 @@ export async function presentTestNotification(sound: boolean, vibration: boolean
       title: "Test Notification",
       body: "This is a test notification.",
       sound: sound ? "default" : false,
-      data: { sound },
+      ...(vibration ? { vibrate: VIBRATION_PATTERN } : {}),
+      data: { sound, vibration, channelId: channelFor(sound, vibration) },
     },
     trigger: { channelId: channelFor(sound, vibration) },
   });
