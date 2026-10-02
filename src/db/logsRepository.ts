@@ -60,3 +60,15 @@ export async function deleteAllLogs(): Promise<void> {
   const db = await getDatabase();
   await db.runAsync("DELETE FROM logs");
 }
+
+/**
+ * Deletes log rows older than `cutoffMs` (epoch ms), for the Log retention
+ * setting (issue #89). Strictly older-than, so a row created exactly at the
+ * cutoff is kept. Takes a plain cutoff rather than a day count or reading
+ * settings itself, so this repository stays free of UI/settings state — see
+ * `services/logger.ts` for how the cutoff is computed.
+ */
+export async function deleteLogsOlderThan(cutoffMs: number): Promise<void> {
+  const db = await getDatabase();
+  await db.runAsync("DELETE FROM logs WHERE created_at < ?", cutoffMs);
+}

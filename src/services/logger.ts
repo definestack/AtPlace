@@ -1,20 +1,45 @@
-import { insertLog } from "@/db/logsRepository";
-import { isDiagnosticLoggingEnabled } from "@/store/settingsStore";
+import { deleteLogsOlderThan, insertLog } from "@/db/logsRepository";
+import { getLogRetentionDays, isDiagnosticLoggingEnabled } from "@/store/settingsStore";
 import type { LogCategory } from "@/types/log";
 import { describeError, formatLogDetail, joinLogDetail } from "@/utils/logFormat";
+
+const MS_PER_DAY = 86_400_000;
+
+/** The epoch-ms cutoff below which a log row is older than `days` of retention (issue #89). */
+export function logRetentionCutoff(days: number, now: number = Date.now()): number {
+  return now - days * MS_PER_DAY;
+}
+
+/**
+ * Deletes log rows older than the configured Log retention setting (issue
+ * #89). Never throws — called both on launch and after every log write, and
+ * a cleanup failure must not break the log write or app startup it runs
+ * alongside.
+ */
+export async function pruneExpiredLogs(): Promise<void> {
+  try {
+    const days = await getLogRetentionDays();
+    await deleteLogsOlderThan(logRetentionCutoff(days));
+  } catch (err) {
+    console.error("[logger] failed to prune expired logs:", err);
+  }
+}
 
 /**
  * Writes a diagnostic log row and never throws — a failed log write must not
  * break notification delivery or geofence handling in the background task
  * that's calling it. Falls back to `console` so the event is still visible
- * during development if the DB write itself fails.
+ * during development if the DB write itself fails. Prunes rows past the
+ * configured Log retention setting (issue #89) after a successful write.
  */
 async function persist(category: LogCategory, message: string, detail?: string): Promise<void> {
   try {
     await insertLog({ category, message, detail });
   } catch (err) {
     console.error(`[logger] failed to persist ${category} log:`, message, err);
+    return;
   }
+  await pruneExpiredLogs();
 }
 
 /**
