@@ -1,6 +1,20 @@
 import * as SQLite from "expo-sqlite";
 
+import { parseDelayMinutes } from "@/utils/delay";
+
 const DATABASE_NAME = "atplace.db";
+
+/**
+ * Legacy global delay AsyncStorage keys (removed in issue #100 — delay is now
+ * per-reminder). Read once by the v8 migration's backfill, then deleted.
+ * Kept as local constants (not re-exported from `settingsStore`, which no
+ * longer knows about them) so the migration is self-contained.
+ */
+const LEGACY_ARRIVAL_DELAY_KEY = "atplace.arrivalDelayMinutes";
+const LEGACY_LEAVE_DELAY_KEY = "atplace.leaveDelayMinutes";
+
+/** The old global default (Settings > Notifications > Arrival/Leave Delay) — see the v8 migration below. */
+const LEGACY_DEFAULT_DELAY_MINUTES = 3;
 
 type Migration = (db: SQLite.SQLiteDatabase) => Promise<void>;
 
@@ -104,6 +118,52 @@ const migrations: Migration[] = [
     await db.execAsync(`
       ALTER TABLE reminders ADD COLUMN repeat TEXT NOT NULL DEFAULT 'repeating';
     `);
+  },
+  // v8: per-reminder notification delay (issue #100), replacing the global
+  // Arrival Delay / Leave Delay settings. Additive column defaulted to 0
+  // ("Immediately") so the ALTER itself never loses data; the backfill right
+  // after gives existing reminders the delay they were actually using under
+  // the old global settings, read from AsyncStorage (the global values never
+  // lived in SQLite). This runs once, guarded by `user_version` like every
+  // other migration here, and must complete before `settingsStore` deletes
+  // the legacy keys — which is why the deletion happens here, not there.
+  //
+  // `AsyncStorage` is `require`d lazily (rather than imported at module
+  // scope) so that tests which automock this module
+  // (`jest.mock("@/db/database")`, used by `placesRepository`/`logsRepository`
+  // tests) don't have to load the real native AsyncStorage module just to
+  // introspect this file's exports — only actually running a migration needs
+  // it. A plain `require` (not a dynamic `import()`) since Metro/Jest here
+  // run on CommonJS, not ESM.
+  async (db) => {
+    await db.execAsync(`
+      ALTER TABLE reminders ADD COLUMN delay_minutes INTEGER NOT NULL DEFAULT 0;
+    `);
+
+    /* eslint-disable-next-line @typescript-eslint/no-require-imports -- deliberately lazy, see comment above */
+    const AsyncStorage: typeof import("@react-native-async-storage/async-storage").default = require(
+      "@react-native-async-storage/async-storage",
+    ).default;
+    const [storedArrival, storedLeave] = await Promise.all([
+      AsyncStorage.getItem(LEGACY_ARRIVAL_DELAY_KEY),
+      AsyncStorage.getItem(LEGACY_LEAVE_DELAY_KEY),
+    ]);
+    // Unset/invalid falls back to 3 min — the old global default those
+    // reminders were actually running under, not "Immediately".
+    const arrivalDelay = parseDelayMinutes(storedArrival) ?? LEGACY_DEFAULT_DELAY_MINUTES;
+    const leaveDelay = parseDelayMinutes(storedLeave) ?? LEGACY_DEFAULT_DELAY_MINUTES;
+
+    await db.runAsync("UPDATE reminders SET delay_minutes = ? WHERE trigger = 'arrive'", arrivalDelay);
+    await db.runAsync("UPDATE reminders SET delay_minutes = ? WHERE trigger = 'leave'", leaveDelay);
+
+    // Best-effort cleanup — a failure here must never block the DB from
+    // opening; the keys are already orphaned from the app's perspective
+    // either way since `settingsStore` no longer reads them.
+    try {
+      await AsyncStorage.multiRemove([LEGACY_ARRIVAL_DELAY_KEY, LEGACY_LEAVE_DELAY_KEY]);
+    } catch {
+      // Ignored — see above.
+    }
   },
 ];
 

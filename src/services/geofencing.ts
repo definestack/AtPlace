@@ -13,6 +13,16 @@ import {
 } from "@/db/remindersRepository";
 import { describeAppState } from "@/services/appLifecycle";
 import { diagnoseDelivery, loadDeliverySnapshot, type AlertPrefs } from "@/services/deliveryDiagnostics";
+import {
+  describeSuppressReason,
+  groupByDelay,
+  MIN_LEAVE_STAY_MS,
+  normalizePendingState,
+  planTransition,
+  shouldNotify,
+  type PendingDelivery,
+  type PendingState,
+} from "@/services/geofencePlanning";
 import { logException, logGeofence, logNotification, logVibration } from "@/services/logger";
 import { LocationPermissionDeniedError } from "@/services/location";
 import {
@@ -24,17 +34,13 @@ import {
   presentReminderNotification,
   requestNotificationPermission,
 } from "@/services/notifications";
-import {
-  getArrivalDelayMinutes,
-  getLeaveDelayMinutes,
-  getNotificationSound,
-  getNotificationVibration,
-  getNotificationsEnabled,
-} from "@/store/settingsStore";
+import { getNotificationSound, getNotificationVibration, getNotificationsEnabled } from "@/store/settingsStore";
 import type { ReminderTrigger } from "@/types/reminder";
 import { distanceMeters } from "@/utils/geo";
 import { formatIsoTimestamp, formatLogDetail, joinLogDetail } from "@/utils/logFormat";
 import { resolveOverride } from "@/utils/notificationPrefs";
+
+export type { PendingDelivery, PendingState } from "@/services/geofencePlanning";
 
 /** Background task name — must match between `defineTask` and start/stopGeofencingAsync. */
 export const GEOFENCE_TASK_NAME = "atplace-geofence-task";
@@ -76,9 +82,6 @@ function regionsSignature(regions: GeofenceRegion[]): string {
  */
 const OCCUPANCY_KEY = "atplace.geofenceOccupancy";
 
-/** Backstop for a contradictory transition delivered shortly after registration. */
-const SETTLE_MS = 30_000;
-
 type OccupancyState = {
   registeredAt: number;
   occupancy: Record<string, boolean>;
@@ -107,35 +110,20 @@ async function setOccupancyState(state: OccupancyState): Promise<void> {
 }
 
 /**
- * A reminder notification that's been scheduled with a delay (issue: driving
- * through a place shouldn't notify) but hasn't fired/been finalized yet, one
- * per place. `notificationIds` are the OS-scheduled notifications to cancel
- * if the transition turns out to be a drive-through; `reminders` is the
- * snapshot needed to write the inbox row(s) and disable one-time reminders
- * once `fireAt` elapses (see `finalizeDuePending`).
+ * Pending deliveries, keyed by place id (issue #100: each place can have
+ * several in flight at once — one per distinct delay among its active
+ * reminders for a given trigger). Keyed separately from `OCCUPANCY_KEY` so
+ * re-seeding occupancy never wipes pending deliveries. See
+ * `services/geofencePlanning.ts` for the `PendingDelivery`/`PendingState`
+ * shapes and the pure scheduling decisions below.
  */
-type PendingDelivery = {
-  trigger: ReminderTrigger;
-  fireAt: number;
-  notificationIds: string[];
-  reminders: ActiveReminderSummary[];
-  /**
-   * Resolved sound/vibration per reminder (same order as `reminders`), for
-   * delivery diagnostics. Optional: absent in state written by older builds.
-   */
-  alerts?: AlertPrefs[];
-};
-
-type PendingState = Record<string, PendingDelivery>;
-
-/** Keyed separately from `OCCUPANCY_KEY` so re-seeding occupancy never wipes pending deliveries. */
 const PENDING_KEY = "atplace.geofencePending";
 
 async function getPendingState(): Promise<PendingState> {
   const raw = await AsyncStorage.getItem(PENDING_KEY);
   if (!raw) return {};
   try {
-    return JSON.parse(raw) as PendingState;
+    return normalizePendingState(JSON.parse(raw));
   } catch {
     return {};
   }
@@ -143,101 +131,6 @@ async function getPendingState(): Promise<PendingState> {
 
 async function setPendingState(state: PendingState): Promise<void> {
   await AsyncStorage.setItem(PENDING_KEY, JSON.stringify(state));
-}
-
-/** Why `shouldNotify` suppressed a transition — surfaced in the Event Log (issue #70). */
-export type SuppressReason = "alreadyInState" | "settling";
-
-/**
- * Decides whether a geofence event represents a genuine transition (and so
- * should notify), given the last known occupancy for that place. Pure so the
- * decision is easy to reason about independent of AsyncStorage/TaskManager.
- */
-export function shouldNotify(
-  trigger: ReminderTrigger,
-  placeId: string,
-  state: OccupancyState,
-  now: number,
-): { notify: boolean; nextInside: boolean; reason?: SuppressReason } {
-  const expectedInside = trigger === "arrive";
-  const known = state.occupancy[placeId];
-
-  // Already known to be in the state this event claims to move us to — not a
-  // real change (this is the immediate post-registration transition, or a
-  // duplicate delivery).
-  if (known === expectedInside) {
-    return { notify: false, nextInside: expectedInside, reason: "alreadyInState" };
-  }
-
-  // An apparent transition delivered shortly after (re)registration is still
-  // treated as the initial trigger rather than a real move, in case Android
-  // delivers it a little late. Occupancy is left as last known (falling back
-  // to "not expected" if we never seeded it at all).
-  if (now - state.registeredAt < SETTLE_MS) {
-    return { notify: false, nextInside: known ?? !expectedInside, reason: "settling" };
-  }
-
-  return { notify: true, nextInside: expectedInside };
-}
-
-/** Human-readable text for a `shouldNotify` suppression, shown as the log row's `Reason`. */
-function describeSuppressReason(reason: SuppressReason | undefined): string {
-  switch (reason) {
-    case "alreadyInState":
-      return "Device was already inside/outside this place (duplicate or post-registration event)";
-    case "settling":
-      return `Within the ${SETTLE_MS / 1000}s settle window after geofences were (re)registered`;
-    default:
-      return "Unknown";
-  }
-}
-
-/** What to do about a genuine transition, once `shouldNotify` has confirmed it's real. */
-type TransitionDecision =
-  | { action: "cancelOpposite" }
-  | { action: "schedule"; delayMs: number }
-  | { action: "suppressShortStay" };
-
-/**
- * Decides how to handle a genuine ENTER/EXIT once `shouldNotify` has ruled
- * out a spurious post-registration event, so a drive-through doesn't notify
- * (the original motivation for this whole delay scheme). Pure, like
- * `shouldNotify`, so the drive-through/reversal rules are easy to reason
- * about independent of AsyncStorage/TaskManager:
- *
- * - ENTER while a LEAVE is still pending (not yet fired) means the device
- *   never really left — cancel the pending leave, nothing new to schedule.
- * - EXIT while an ARRIVE is still pending means this was a drive-through —
- *   cancel the pending arrival, nothing new to schedule (leave is suppressed
- *   too, since there was no confirmed arrival to leave from).
- * - EXIT with no pending arrival, but the confirmed stay (`now - enteredAt`)
- *   was shorter than the arrival delay, is the same drive-through case for a
- *   place with only `leave` reminders (no arrival was ever scheduled to
- *   cancel). `enteredAt` unset (place was already occupied when regions were
- *   last (re)registered) is treated as a confirmed stay, not a short one.
- * - Otherwise, schedule the notification with the appropriate delay.
- */
-export function planTransition(
-  trigger: ReminderTrigger,
-  pending: PendingDelivery | undefined,
-  enteredAt: number | undefined,
-  now: number,
-  arrivalDelayMs: number,
-  leaveDelayMs: number,
-): TransitionDecision {
-  const pendingOpposite = trigger === "arrive" ? "leave" : "arrive";
-  if (pending?.trigger === pendingOpposite && pending.fireAt > now) {
-    return { action: "cancelOpposite" };
-  }
-
-  if (trigger === "arrive") {
-    return { action: "schedule", delayMs: arrivalDelayMs };
-  }
-
-  if (enteredAt !== undefined && now - enteredAt < arrivalDelayMs) {
-    return { action: "suppressShortStay" };
-  }
-  return { action: "schedule", delayMs: leaveDelayMs };
 }
 
 /**
@@ -262,7 +155,12 @@ export function planTransition(
 export async function finalizeDuePending(): Promise<void> {
   const now = Date.now();
   const pendingState = await getPendingState();
-  const dueEntries = Object.entries(pendingState).filter(([, entry]) => entry.fireAt <= now);
+  // One place can have several pending groups in flight at once (issue #100:
+  // reminders with different delays) — finalize only the groups whose own
+  // `fireAt` has elapsed, and keep the rest pending.
+  const dueEntries = Object.entries(pendingState).flatMap(([placeId, entries]) =>
+    entries.filter((entry) => entry.fireAt <= now).map((entry) => ({ placeId, entry })),
+  );
   if (dueEntries.length === 0) return;
 
   // Read the tray/schedule once so each delivery below can report whether
@@ -270,7 +168,7 @@ export async function finalizeDuePending(): Promise<void> {
   const snapshot = await loadDeliverySnapshot();
 
   let disabledOneTimeReminder = false;
-  for (const [placeId, entry] of dueEntries) {
+  for (const { placeId, entry } of dueEntries) {
     for (const [index, reminder] of entry.reminders.entries()) {
       // Persist a notification-inbox row alongside the OS notification
       // (issue #40), so the in-app Notifications screen has a record of
@@ -295,6 +193,8 @@ export async function finalizeDuePending(): Promise<void> {
         Place: reminder.placeName,
         "Region ID": placeId,
         Trigger: entry.trigger,
+        // Absent in pending state written before issue #100 — `formatLogDetail` omits it then.
+        Delay: reminder.delayMinutes !== undefined ? `${reminder.delayMinutes} min` : undefined,
       });
       // "Recorded after" is how late this bookkeeping ran past the scheduled
       // fire time — not how late the OS notification itself was, which the
@@ -334,7 +234,18 @@ export async function finalizeDuePending(): Promise<void> {
         disabledOneTimeReminder = true;
       }
     }
-    delete pendingState[placeId];
+  }
+
+  // Drop only the now-finalized groups, keeping any still-pending group at
+  // the same place (e.g. a 5 min delay reminder while a 0 min one already
+  // finalized).
+  for (const [placeId, entries] of Object.entries(pendingState)) {
+    const remaining = entries.filter((entry) => entry.fireAt > now);
+    if (remaining.length > 0) {
+      pendingState[placeId] = remaining;
+    } else {
+      delete pendingState[placeId];
+    }
   }
   await setPendingState(pendingState);
 
@@ -496,7 +407,12 @@ TaskManager.defineTask<GeofenceTaskData>(GEOFENCE_TASK_NAME, async ({ data, erro
     // Occupancy is updated regardless of what happens below so it never
     // drifts from reality.
     const occupancyState = await getOccupancyState();
-    const { notify, nextInside, reason } = shouldNotify(trigger, placeId, occupancyState, now);
+    const { notify, nextInside, reason } = shouldNotify(
+      trigger,
+      occupancyState.occupancy[placeId],
+      occupancyState.registeredAt,
+      now,
+    );
     const enteredAt = occupancyState.enteredAt[placeId];
     const nextEnteredAt = { ...occupancyState.enteredAt };
     if (notify) {
@@ -532,49 +448,51 @@ TaskManager.defineTask<GeofenceTaskData>(GEOFENCE_TASK_NAME, async ({ data, erro
     }
 
     const pendingState = await getPendingState();
-    const [arrivalDelayMinutes, leaveDelayMinutes] = await Promise.all([
-      getArrivalDelayMinutes(),
-      getLeaveDelayMinutes(),
-    ]);
-    const decision = planTransition(
-      trigger,
-      pendingState[placeId],
-      enteredAt,
-      now,
-      arrivalDelayMinutes * 60_000,
-      leaveDelayMinutes * 60_000,
-    );
+    const decision = planTransition(trigger, pendingState[placeId] ?? [], enteredAt, now);
 
-    if (decision.action === "cancelOpposite") {
-      const opposite = pendingState[placeId];
-      await cancelScheduledNotifications(opposite.notificationIds);
-      delete pendingState[placeId];
+    // Per-reminder drive-through protection (issue #100): cancel every
+    // not-yet-fired opposite-trigger group, independent of whether this
+    // transition goes on to schedule anything new below.
+    if (decision.cancel.length > 0) {
+      const cancelledIds = decision.cancel.flatMap((entry) => entry.notificationIds);
+      await cancelScheduledNotifications(cancelledIds);
+      const remaining = (pendingState[placeId] ?? []).filter((entry) => !decision.cancel.includes(entry));
+      if (remaining.length > 0) {
+        pendingState[placeId] = remaining;
+      } else {
+        delete pendingState[placeId];
+      }
       await setPendingState(pendingState);
+
+      const cancelledTitles = decision.cancel.flatMap((entry) => entry.reminders.map((r) => r.title)).join(", ");
       await logGeofence(
         trigger === "arrive"
-          ? "Cancelled pending leave notification — returned before it fired"
-          : "Cancelled pending arrival notification — drive-through detected",
+          ? "Cancelled pending leave notification(s) — returned before they fired"
+          : "Cancelled pending arrival notification(s) — drive-through detected",
         formatLogDetail({
           ...regionDetail,
+          Reminders: cancelledTitles,
           Reason:
             trigger === "arrive"
-              ? "Device re-entered before the pending leave notification fired"
-              : "Device exited before the pending arrival notification fired (drive-through)",
+              ? "Device re-entered before the pending leave notification(s) fired"
+              : "Device exited before the pending arrival notification(s) fired (drive-through)",
         }),
       );
-      return;
     }
 
-    if (decision.action === "suppressShortStay") {
-      const arrivalDelayMs = arrivalDelayMinutes * 60_000;
-      const stayMs = enteredAt !== undefined ? now - enteredAt : undefined;
-      await logGeofence(
-        "Suppressed leave notification — stay shorter than arrival delay",
-        formatLogDetail({
-          ...regionDetail,
-          Reason: `Stayed ${stayMs !== undefined ? Math.round(stayMs / 1000) : "?"}s, less than the ${Math.round(arrivalDelayMs / 1000)}s arrival delay`,
-        }),
-      );
+    if (!decision.schedule) {
+      if (decision.suppress === "shortStay") {
+        const stayMs = enteredAt !== undefined ? now - enteredAt : undefined;
+        await logGeofence(
+          "Suppressed leave notification — stay shorter than 1 min minimum",
+          formatLogDetail({
+            ...regionDetail,
+            Reason: `Stayed ${stayMs !== undefined ? Math.round(stayMs / 1000) : "?"}s, less than the ${MIN_LEAVE_STAY_MS / 1000}s minimum stay`,
+          }),
+        );
+      }
+      // "returnedBeforeLeave" needs no extra log row — the cancellation above
+      // already explains what happened.
       return;
     }
 
@@ -590,43 +508,54 @@ TaskManager.defineTask<GeofenceTaskData>(GEOFENCE_TASK_NAME, async ({ data, erro
       return;
     }
 
-    const delaySeconds = Math.round(decision.delayMs / 1000);
-    const notificationIds: string[] = [];
-    const alerts: AlertPrefs[] = [];
-    for (const reminder of reminders) {
-      const sound = resolveOverride(reminder.sound, globalSound);
-      const vibration = resolveOverride(reminder.vibration, globalVibration);
-      const id = await presentReminderNotification(
-        reminder.placeName,
-        reminder.title,
-        trigger,
-        sound,
-        vibration,
-        delaySeconds,
-      );
-      notificationIds.push(id);
-      alerts.push({ sound, vibration });
+    // Per-reminder delay (issue #100): reminders at the same place/trigger
+    // can have different delays, so each delay group is scheduled and
+    // tracked with its own `fireAt`.
+    const groups = groupByDelay(reminders);
+    const newEntries: PendingDelivery[] = [];
+    let scheduledImmediate = false;
+    for (const [delayMinutes, group] of groups) {
+      const delaySeconds = delayMinutes * 60;
+      const notificationIds: string[] = [];
+      const alerts: AlertPrefs[] = [];
+      for (const reminder of group) {
+        const sound = resolveOverride(reminder.sound, globalSound);
+        const vibration = resolveOverride(reminder.vibration, globalVibration);
+        const id = await presentReminderNotification(
+          reminder.placeName,
+          reminder.title,
+          trigger,
+          sound,
+          vibration,
+          delaySeconds,
+        );
+        notificationIds.push(id);
+        alerts.push({ sound, vibration });
 
-      await logVibrationOutcome(reminder, regionDetail, vibration, sound, delaySeconds);
+        await logVibrationOutcome(reminder, regionDetail, vibration, sound, delaySeconds);
+      }
+
+      const fireAt = now + delaySeconds * 1000;
+      newEntries.push({ trigger, fireAt, notificationIds, reminders: group, alerts });
+      await logGeofence(
+        delaySeconds > 0 ? `Scheduled ${trigger} notification(s) in ${delaySeconds}s` : `Scheduled ${trigger} notification(s)`,
+        delaySeconds > 0
+          ? joinLogDetail(
+              formatLogDetail(regionDetail),
+              formatLogDetail({ "Fires at": formatIsoTimestamp(fireAt), "App state": describeAppState() }),
+            )
+          : formatLogDetail({ ...regionDetail, "App state": describeAppState() }),
+      );
+      if (delaySeconds === 0) scheduledImmediate = true;
     }
 
-    const fireAt = now + decision.delayMs;
-    pendingState[placeId] = { trigger, fireAt, notificationIds, reminders, alerts };
+    pendingState[placeId] = [...(pendingState[placeId] ?? []), ...newEntries];
     await setPendingState(pendingState);
-    await logGeofence(
-      delaySeconds > 0 ? `Scheduled ${trigger} notification(s) in ${delaySeconds}s` : `Scheduled ${trigger} notification(s)`,
-      delaySeconds > 0
-        ? joinLogDetail(
-            formatLogDetail(regionDetail),
-            formatLogDetail({ "Fires at": formatIsoTimestamp(fireAt), "App state": describeAppState() }),
-          )
-        : formatLogDetail({ ...regionDetail, "App state": describeAppState() }),
-    );
 
-    // Delay of 0 ("Immediately") elapses instantly — finalize right away
+    // A 0-min ("Immediately") group elapses instantly — finalize right away
     // rather than waiting for the next transition or app foreground, so
     // behavior matches pre-delay delivery exactly.
-    if (delaySeconds === 0) {
+    if (scheduledImmediate) {
       await finalizeDuePending();
     }
   } catch (err) {
@@ -710,7 +639,9 @@ export async function syncGeofences(): Promise<void> {
 /** Cancels and drops every pending delivery — used when geofencing stops entirely. */
 async function clearAllPending(): Promise<void> {
   const pendingState = await getPendingState();
-  const allIds = Object.values(pendingState).flatMap((entry) => entry.notificationIds);
+  const allIds = Object.values(pendingState).flatMap((entries) =>
+    entries.flatMap((entry) => entry.notificationIds),
+  );
   if (allIds.length > 0) {
     await cancelScheduledNotifications(allIds);
   }
@@ -725,7 +656,8 @@ async function dropPendingForUnmonitoredPlaces(monitoredPlaceIds: string[]): Pro
   if (stalePlaceIds.length === 0) return;
 
   for (const placeId of stalePlaceIds) {
-    await cancelScheduledNotifications(pendingState[placeId].notificationIds);
+    const allIds = pendingState[placeId].flatMap((entry) => entry.notificationIds);
+    await cancelScheduledNotifications(allIds);
     delete pendingState[placeId];
   }
   await setPendingState(pendingState);

@@ -1,12 +1,14 @@
 import { getDatabase } from "@/db/database";
 import type { PlaceColor, PlaceIconName } from "@/types/place";
 import type {
+  DelayMinutes,
   NewReminder,
   NotificationOverride,
   Reminder,
   ReminderRepeat,
   ReminderTrigger,
 } from "@/types/reminder";
+import { parseDelayMinutes } from "@/utils/delay";
 
 /** Raw row shape as read back via a join with `places`. */
 type ReminderRowRecord = {
@@ -18,6 +20,7 @@ type ReminderRowRecord = {
   sound_override: string;
   vibration_override: string;
   repeat: string;
+  delay_minutes: number;
   place_name: string;
   place_icon: string;
   place_color: string;
@@ -33,6 +36,9 @@ function toReminder(row: ReminderRowRecord): Reminder {
     sound: row.sound_override as NotificationOverride,
     vibration: row.vibration_override as NotificationOverride,
     repeat: row.repeat as ReminderRepeat,
+    // Defensive fallback for a row somehow outside the allowed options —
+    // should never happen post-migration, but never let a bad value throw.
+    delayMinutes: parseDelayMinutes(row.delay_minutes) ?? 0,
     placeName: row.place_name,
     placeIcon: row.place_icon as PlaceIconName,
     placeColor: row.place_color as PlaceColor,
@@ -43,8 +49,8 @@ function toReminder(row: ReminderRowRecord): Reminder {
 export async function insertReminder(reminder: NewReminder): Promise<void> {
   const db = await getDatabase();
   await db.runAsync(
-    `INSERT INTO reminders (id, place_id, title, trigger, enabled, sound_override, vibration_override, repeat, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO reminders (id, place_id, title, trigger, enabled, sound_override, vibration_override, repeat, delay_minutes, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     reminder.id,
     reminder.placeId,
     reminder.title,
@@ -53,6 +59,7 @@ export async function insertReminder(reminder: NewReminder): Promise<void> {
     reminder.sound,
     reminder.vibration,
     reminder.repeat,
+    reminder.delayMinutes,
     Date.now(),
   );
 }
@@ -61,7 +68,7 @@ export async function insertReminder(reminder: NewReminder): Promise<void> {
 export async function getAllReminders(): Promise<Reminder[]> {
   const db = await getDatabase();
   const rows = await db.getAllAsync<ReminderRowRecord>(
-    `SELECT r.id, r.place_id, r.title, r.trigger, r.enabled, r.sound_override, r.vibration_override, r.repeat,
+    `SELECT r.id, r.place_id, r.title, r.trigger, r.enabled, r.sound_override, r.vibration_override, r.repeat, r.delay_minutes,
             p.name AS place_name, p.icon AS place_icon, p.color AS place_color
      FROM reminders r
      JOIN places p ON p.id = r.place_id
@@ -81,13 +88,14 @@ export async function updateReminder(reminder: Reminder): Promise<void> {
   const db = await getDatabase();
   await db.runAsync(
     `UPDATE reminders
-     SET title = ?, trigger = ?, sound_override = ?, vibration_override = ?, repeat = ?
+     SET title = ?, trigger = ?, sound_override = ?, vibration_override = ?, repeat = ?, delay_minutes = ?
      WHERE id = ?`,
     reminder.title,
     reminder.trigger,
     reminder.sound,
     reminder.vibration,
     reminder.repeat,
+    reminder.delayMinutes,
     reminder.id,
   );
 }
@@ -167,6 +175,8 @@ export type ActiveReminderSummary = {
   sound: NotificationOverride;
   vibration: NotificationOverride;
   repeat: ReminderRepeat;
+  /** This reminder's own Notification Delay (issue #100) — no longer a global setting. */
+  delayMinutes: DelayMinutes;
 };
 
 /**
@@ -188,9 +198,10 @@ export async function getActiveRemindersForTrigger(
     sound_override: string;
     vibration_override: string;
     repeat: string;
+    delay_minutes: number;
   }>(
     `SELECT r.id AS reminder_id, r.title, p.name AS place_name, p.icon AS place_icon, p.color AS place_color,
-            r.sound_override, r.vibration_override, r.repeat
+            r.sound_override, r.vibration_override, r.repeat, r.delay_minutes
      FROM reminders r
      JOIN places p ON p.id = r.place_id
      WHERE r.place_id = ? AND r.trigger = ? AND r.enabled = 1`,
@@ -206,5 +217,6 @@ export async function getActiveRemindersForTrigger(
     sound: row.sound_override as NotificationOverride,
     vibration: row.vibration_override as NotificationOverride,
     repeat: row.repeat as ReminderRepeat,
+    delayMinutes: parseDelayMinutes(row.delay_minutes) ?? 0,
   }));
 }

@@ -1,20 +1,22 @@
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useColorScheme } from "nativewind";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { Alert, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ItemIcon } from "@/components/ItemIcon";
+import { NotificationDelayRow } from "@/components/NotificationDelayRow";
 import { NotificationSection } from "@/components/NotificationSection";
 import { ReminderRepeatControl } from "@/components/ReminderRepeatControl";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { TipBanner } from "@/components/TipBanner";
 import { TriggerOptionCard } from "@/components/TriggerOptionCard";
 import { usePlacesStore } from "@/store/placesStore";
+import { useReminderDelayPickStore } from "@/store/reminderDelayPickStore";
 import { useRemindersStore } from "@/store/remindersStore";
 import { useSettingsStore } from "@/store/settingsStore";
 import { colors } from "@/theme/colors";
-import type { NotificationOverride, ReminderRepeat, ReminderTrigger } from "@/types/reminder";
+import type { DelayMinutes, NotificationOverride, ReminderRepeat, ReminderTrigger } from "@/types/reminder";
 import { generateId } from "@/utils/id";
 
 /**
@@ -32,13 +34,28 @@ export function AddReminderScreen() {
   const addReminder = useRemindersStore((state) => state.addReminder);
   const reminderTipDismissed = useSettingsStore((state) => state.reminderTipDismissed);
   const setReminderTipDismissed = useSettingsStore((state) => state.setReminderTipDismissed);
+  const pickedDelay = useReminderDelayPickStore((state) => state.picked);
+  const consumePickedDelay = useReminderDelayPickStore((state) => state.consumePicked);
 
   const [title, setTitle] = useState("");
   const [trigger, setTrigger] = useState<ReminderTrigger>("arrive");
   const [sound, setSound] = useState<NotificationOverride>("default");
   const [vibration, setVibration] = useState<NotificationOverride>("default");
   const [repeat, setRepeat] = useState<ReminderRepeat>("once");
+  // New reminders default to Immediately (issue #100) — there's no longer a
+  // global default to inherit.
+  const [delayMinutes, setDelayMinutes] = useState<DelayMinutes>(0);
   const [saving, setSaving] = useState(false);
+
+  // Apply a delay picked via the Notification Delay row when this screen
+  // regains focus, mirroring `EditPlaceScreen`'s `placeLocationPickStore` use.
+  useFocusEffect(
+    useCallback(() => {
+      if (pickedDelay === null) return;
+      setDelayMinutes(pickedDelay);
+      consumePickedDelay();
+    }, [pickedDelay, consumePickedDelay]),
+  );
 
   const textColor = colorScheme === "dark" ? colors.white : colors.brand;
 
@@ -63,6 +80,7 @@ export function AddReminderScreen() {
         sound,
         vibration,
         repeat,
+        delayMinutes,
       });
       // Refresh places so the place's reminder count reflects the new reminder.
       await hydratePlaces();
@@ -143,6 +161,17 @@ export function AddReminderScreen() {
         </View>
 
         <ReminderRepeatControl value={repeat} onChange={setRepeat} />
+
+        <NotificationDelayRow
+          trigger={trigger}
+          value={delayMinutes}
+          onPress={() =>
+            router.push({
+              pathname: "/reminder-delay",
+              params: { value: String(delayMinutes), trigger },
+            })
+          }
+        />
 
         <NotificationSection
           sound={sound}

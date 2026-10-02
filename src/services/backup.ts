@@ -12,6 +12,7 @@ import { useSettingsStore, type Units } from "@/store/settingsStore";
 import { useThemeStore, type ThemeMode } from "@/store/themeStore";
 import type { NewPlace, Place } from "@/types/place";
 import type { NewReminder, Reminder } from "@/types/reminder";
+import { parseDelayMinutes } from "@/utils/delay";
 
 const BACKUP_FILE_NAME = "atplace-backup.json";
 const BACKUP_VERSION = 1;
@@ -132,6 +133,9 @@ export async function importData(): Promise<boolean> {
       sound: reminder.sound ?? "default",
       vibration: reminder.vibration ?? "default",
       repeat: reminder.repeat ?? "once",
+      // Older backups predate issue #100 and have no `delayMinutes` — import
+      // as Immediately, matching the AC for an older backup.
+      delayMinutes: parseDelayMinutes(reminder.delayMinutes) ?? 0,
     };
     await insertReminder(newReminder);
   }

@@ -123,7 +123,8 @@ src/
 
 **Notifications**
 - Local (on-device) notifications
-- Delivered after staying inside/outside a place for the configured Arrival Delay / Leave Delay (Settings > Notifications, default 3 minutes each), so driving through a saved place doesn't fire a false reminder
+- Each reminder has its own **Notification Delay** (Immediately, 1, 3, 5, or 10 min; default Immediately), set on the Add/Edit Reminder screen, so driving through a saved place doesn't fire a false reminder
+- Leave reminders additionally require a fixed **1 minute minimum stay** at the place before they can fire, independent of the reminder's own delay
 - No server infrastructure required
 
 **Developer Mode**
