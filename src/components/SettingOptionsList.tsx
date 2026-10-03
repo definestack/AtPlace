@@ -17,7 +17,7 @@ type SettingOptionsListProps<T extends string | number> = {
 
 /**
  * Single-select list of options used by the Settings drill-in screens
- * (App Theme, Units, Arrival/Leave Delay): one row per option, with a
+ * (App Theme, Units, and the per-reminder Notification Delay): one row per option, with a
  * checkmark on the active value. Selecting a row applies immediately —
  * there's no separate save step.
  */

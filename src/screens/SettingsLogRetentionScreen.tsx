@@ -25,7 +25,7 @@ const RETENTION_OPTIONS: { value: number; label: string }[] = Array.from(
 /**
  * Log retention drill-in (Settings > Logging > Log retention, issue #89):
  * how many days of Event Log entries to keep before automatic cleanup (see
- * `services/logger.ts#pruneExpiredLogs`). Matches `SettingsDelayScreen`'s
+ * `services/logger.ts#pruneExpiredLogs`). Matches `ReminderDelayScreen`'s
  * layout and "selecting applies immediately" pattern.
  */
 export function SettingsLogRetentionScreen() {

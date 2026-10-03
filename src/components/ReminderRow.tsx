@@ -5,6 +5,7 @@ import { Pressable, Switch, Text, View } from "react-native";
 import { ItemIcon } from "@/components/ItemIcon";
 import { colors } from "@/theme/colors";
 import type { Reminder } from "@/types/reminder";
+import { delaySuffix } from "@/utils/delay";
 
 type ReminderRowProps = {
   reminder: Reminder;
@@ -42,6 +43,7 @@ export function ReminderRow({ reminder, onToggle, onDelete, onPress }: ReminderR
           </Text>
           <Text className="text-sm text-muted dark:text-mutedDark">
             At {reminder.placeName} • {TRIGGER_LABEL[reminder.trigger]}
+            {delaySuffix(reminder.delayMinutes)}
           </Text>
         </View>
       </Pressable>

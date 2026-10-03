@@ -4,6 +4,14 @@ import type { PlaceColor, PlaceIconName } from "@/types/place";
 export type ReminderTrigger = "arrive" | "leave";
 
 /**
+ * Minutes options offered for a reminder's Notification Delay (issue #100).
+ * `0` means "Immediately" — notify as soon as a genuine transition is
+ * confirmed, with no drive-through waiting period.
+ */
+export const DELAY_OPTIONS_MINUTES = [0, 1, 3, 5, 10] as const;
+export type DelayMinutes = (typeof DELAY_OPTIONS_MINUTES)[number];
+
+/**
  * Whether a reminder fires once and then goes inactive, or keeps firing every
  * time its trigger condition is met (issue #53). `"once"` is the default for
  * new reminders.
@@ -36,6 +44,8 @@ export type Reminder = {
   sound: NotificationOverride;
   vibration: NotificationOverride;
   repeat: ReminderRepeat;
+  /** How long after a genuine arrive/leave transition this reminder notifies (issue #100). `0` = Immediately. */
+  delayMinutes: DelayMinutes;
 };
 
 /** Input for creating a new reminder — place display fields are derived via join on read. */
@@ -48,4 +58,5 @@ export type NewReminder = {
   sound: NotificationOverride;
   vibration: NotificationOverride;
   repeat: ReminderRepeat;
+  delayMinutes: DelayMinutes;
 };

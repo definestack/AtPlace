@@ -1,18 +1,20 @@
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useColorScheme } from "nativewind";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { Alert, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ItemIcon } from "@/components/ItemIcon";
+import { NotificationDelayRow } from "@/components/NotificationDelayRow";
 import { NotificationSection } from "@/components/NotificationSection";
 import { ReminderRepeatControl } from "@/components/ReminderRepeatControl";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { TriggerOptionCard } from "@/components/TriggerOptionCard";
 import { usePlacesStore } from "@/store/placesStore";
+import { useReminderDelayPickStore } from "@/store/reminderDelayPickStore";
 import { useRemindersStore } from "@/store/remindersStore";
 import { colors } from "@/theme/colors";
-import type { NotificationOverride, ReminderRepeat, ReminderTrigger } from "@/types/reminder";
+import type { DelayMinutes, NotificationOverride, ReminderRepeat, ReminderTrigger } from "@/types/reminder";
 
 /**
  * Edit Reminder screen (issue #51) — reached by tapping a reminder on the
@@ -33,6 +35,8 @@ export function EditReminderScreen() {
   // Only used for the place's address line — the reminder itself already
   // carries placeName/placeIcon/placeColor via the repository join.
   const place = usePlacesStore((state) => state.places.find((p) => p.id === reminder?.placeId));
+  const pickedDelay = useReminderDelayPickStore((state) => state.picked);
+  const consumePickedDelay = useReminderDelayPickStore((state) => state.consumePicked);
 
   const [title, setTitle] = useState(reminder?.title ?? "");
   const [trigger, setTrigger] = useState<ReminderTrigger>(reminder?.trigger ?? "arrive");
@@ -41,7 +45,18 @@ export function EditReminderScreen() {
     reminder?.vibration ?? "default",
   );
   const [repeat, setRepeat] = useState<ReminderRepeat>(reminder?.repeat ?? "once");
+  const [delayMinutes, setDelayMinutes] = useState<DelayMinutes>(reminder?.delayMinutes ?? 0);
   const [saving, setSaving] = useState(false);
+
+  // Apply a delay picked via the Notification Delay row when this screen
+  // regains focus, mirroring `EditPlaceScreen`'s `placeLocationPickStore` use.
+  useFocusEffect(
+    useCallback(() => {
+      if (pickedDelay === null) return;
+      setDelayMinutes(pickedDelay);
+      consumePickedDelay();
+    }, [pickedDelay, consumePickedDelay]),
+  );
 
   const textColor = colorScheme === "dark" ? colors.white : colors.brand;
 
@@ -54,7 +69,15 @@ export function EditReminderScreen() {
 
     setSaving(true);
     try {
-      await updateReminder({ ...reminder, title: title.trim(), trigger, sound, vibration, repeat });
+      await updateReminder({
+        ...reminder,
+        title: title.trim(),
+        trigger,
+        sound,
+        vibration,
+        repeat,
+        delayMinutes,
+      });
       router.back();
     } catch {
       Alert.alert("Couldn't save reminder", "Something went wrong while saving. Please try again.");
@@ -122,6 +145,17 @@ export function EditReminderScreen() {
         </View>
 
         <ReminderRepeatControl value={repeat} onChange={setRepeat} />
+
+        <NotificationDelayRow
+          trigger={trigger}
+          value={delayMinutes}
+          onPress={() =>
+            router.push({
+              pathname: "/reminder-delay",
+              params: { value: String(delayMinutes), trigger },
+            })
+          }
+        />
 
         <NotificationSection
           sound={sound}
