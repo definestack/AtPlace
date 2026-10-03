@@ -57,7 +57,7 @@ const LEGACY_REMINDER_CHANNEL = "atplace-reminders";
  * silences it outright (overriding the channel) when it neither vibrates nor
  * plays a sound — which is what made vibration-only reminders never vibrate.
  */
-const VIBRATION_PATTERN = [0, 250, 250, 250];
+const VIBRATION_PATTERN = [0, 500, 250, 500];
 
 /** Picks the channel matching a resolved sound/vibration combination. */
 export function channelFor(sound: boolean, vibration: boolean): string {
