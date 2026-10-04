@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Tabs, useRouter } from "expo-router";
+import { Tabs } from "expo-router";
 import { useColorScheme } from "nativewind";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -28,7 +28,6 @@ export default function TabsLayout() {
   const { colorScheme } = useColorScheme();
   const isDark = colorScheme === "dark";
   const insets = useSafeAreaInsets();
-  const router = useRouter();
   // Footer bell badge (issue #40): unread count is derived from the store
   // rather than the OS notification badge (`shouldSetBadge: false` in
   // `services/notifications.ts`), so it reflects the in-app inbox exactly.
@@ -60,17 +59,14 @@ export default function TabsLayout() {
       <Tabs.Screen name="map" options={{ title: "Map" }} />
       <Tabs.Screen
         name="add"
-        options={{ title: "Add" }}
-        listeners={{
-          tabPress: (event) => {
-            // The Add tab is a stub route; opening the real Add Reminder flow
-            // (issue #58) as a pushed screen matches the mockup (back arrow,
-            // no tab bar) instead of rendering inside the tab bar. Reminders
-            // are the primary thing users create, so `+` starts there rather
-            // than Add Place (still reachable from Home > Places).
-            event.preventDefault();
-            router.push("/add-reminder");
-          },
+        options={{
+          title: "Add",
+          // Reset the Add Reminder flow to its first step whenever the user
+          // leaves the tab, so tapping `+` again starts a fresh form (issue #103).
+          popToTopOnBlur: true,
+          // Keep the form and Save button reachable above the keyboard while
+          // the reminder text is being typed (issue #103).
+          tabBarHideOnKeyboard: true,
         }}
       />
       <Tabs.Screen

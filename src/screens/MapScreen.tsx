@@ -144,7 +144,7 @@ export function MapScreen() {
   const handleSaveSearchedPlace = () => {
     if (!searchedPlace) return;
     // Opened from the Map tab, not the reminder flow's place picker — make
-    // sure a stale flag doesn't route Save back into `/add-reminder`.
+    // sure a stale flag doesn't route Save back into the Add tab (`/add`).
     cancelAddPlaceForReminder();
     router.push({
       pathname: "/add-place/details",
