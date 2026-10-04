@@ -84,8 +84,10 @@ export function AddReminderScreen() {
       });
       // Refresh places so the place's reminder count reflects the new reminder.
       await hydratePlaces();
+      // Leaving the Add tab resets its stack (`popToTopOnBlur`), so the next
+      // `+` tap starts fresh (issue #103).
       Alert.alert("Reminder saved", `${title.trim()} has been added to your reminders.`, [
-        { text: "OK", onPress: () => router.dismissAll() },
+        { text: "OK", onPress: () => router.navigate("/home") },
       ]);
     } catch {
       Alert.alert("Couldn't save reminder", "Something went wrong while saving. Please try again.");

@@ -220,7 +220,7 @@ export function HomeScreen() {
                     title="Great! You've added your first place."
                     subtitle="Now create a reminder for when you arrive there."
                     ctaLabel="+ Create Reminder"
-                    onCtaPress={() => router.push("/add-reminder")}
+                    onCtaPress={() => router.navigate("/add")}
                   />
                 ) : (
                   <EmptyState
@@ -228,14 +228,14 @@ export function HomeScreen() {
                     title="No reminders yet"
                     subtitle="Create a reminder that triggers when you arrive at one of your places."
                     ctaLabel="+ Create Reminder"
-                    onCtaPress={() => router.push("/add-reminder")}
+                    onCtaPress={() => router.navigate("/add")}
                   />
                 )
               ) : null
             }
           />
           <Pressable
-            onPress={() => router.push("/add-reminder")}
+            onPress={() => router.navigate("/add")}
             className="mx-6 mb-4 items-center rounded-xl bg-brand py-4 dark:bg-brand-light"
           >
             <Text className="text-base font-semibold text-white">+ Add Reminder</Text>

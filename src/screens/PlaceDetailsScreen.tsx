@@ -80,10 +80,10 @@ export function PlaceDetailsScreen() {
           text: "OK",
           onPress: () => {
             if (addPlaceForReminder) {
-              // Hand the new place back to the reminder flow's place picker
-              // instead of dismissing everything to the tabs (issue #58).
+              // Hand the new place back to the reminder flow's place picker in
+              // the Add tab (issues #58, #103); its focus effect advances to details.
               completeAddPlaceForReminder(id);
-              router.dismissTo("/add-reminder");
+              router.dismissAll();
             } else {
               router.dismissAll();
             }

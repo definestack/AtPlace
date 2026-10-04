@@ -1,20 +1,22 @@
-import { render, screen } from "@testing-library/react-native";
+import { fireEvent, render, screen } from "@testing-library/react-native";
 
 import { HomeScreen } from "@/screens/HomeScreen";
 
 const mockPush = jest.fn();
+const mockNavigate = jest.fn();
 const mockSetParams = jest.fn();
 const mockUseLocalSearchParams = jest.fn();
+let mockPlaces: unknown[] = [];
 
 jest.mock("expo-router", () => ({
-  useRouter: () => ({ push: mockPush, setParams: mockSetParams }),
+  useRouter: () => ({ push: mockPush, navigate: mockNavigate, setParams: mockSetParams }),
   useLocalSearchParams: () => mockUseLocalSearchParams(),
   useFocusEffect: (effect: () => void) => jest.requireActual("react").useEffect(effect),
 }));
 
 jest.mock("@/store/placesStore", () => ({
   usePlacesStore: (selector: (state: unknown) => unknown) =>
-    selector({ places: [], hydrated: true, hydrate: jest.fn(), removePlace: jest.fn() }),
+    selector({ places: mockPlaces, hydrated: true, hydrate: jest.fn(), removePlace: jest.fn() }),
 }));
 
 jest.mock("@/store/remindersStore", () => ({
@@ -42,6 +44,7 @@ describe("HomeScreen", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockUseLocalSearchParams.mockReturnValue({});
+    mockPlaces = [];
   });
 
   it("renders the tabs in the order Reminders, then Places", async () => {
@@ -73,5 +76,15 @@ describe("HomeScreen", () => {
     await render(<HomeScreen />);
 
     expect(screen.getByText("Add a place first")).toBeTruthy();
+  });
+
+  it("switches to the Add tab from the Create Reminder CTA (issue #103)", async () => {
+    mockPlaces = [{ id: "place-1", name: "Office" }];
+
+    await render(<HomeScreen />);
+    await fireEvent.press(screen.getByText("+ Create Reminder"));
+
+    expect(mockNavigate).toHaveBeenCalledWith("/add");
+    expect(mockPush).not.toHaveBeenCalled();
   });
 });

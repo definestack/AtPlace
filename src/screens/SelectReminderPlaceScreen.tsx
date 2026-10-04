@@ -10,9 +10,10 @@ import { useReminderFlowStore } from "@/store/reminderFlowStore";
 import type { Place } from "@/types/place";
 
 /**
- * First step of the Add Reminder flow (issue #8): choose which saved place
- * the new reminder belongs to. Selecting a place pushes into
- * `AddReminderScreen` (mockup #6) with `placeId` as a param.
+ * First step of the Add Reminder flow (issue #8), hosted in the Add tab: choose
+ * which saved place the new reminder belongs to. Selecting a place pushes into
+ * `AddReminderScreen` (mockup #6) with `placeId` as a param. The tab bar stands
+ * in for a back arrow here (issue #103).
  *
  * Also offers "+ Add Place" (issue #58) so a place can be created without
  * leaving this flow: launching it flags `reminderFlowStore`, and when a new
@@ -27,7 +28,7 @@ export function SelectReminderPlaceScreen() {
   const startAddPlaceForReminder = useReminderFlowStore((state) => state.startAddPlaceForReminder);
 
   const handleSelect = (place: Place) => {
-    router.push({ pathname: "/add-reminder/details", params: { placeId: place.id } });
+    router.push({ pathname: "/add/details", params: { placeId: place.id } });
   };
 
   const handleAddPlace = () => {
@@ -41,16 +42,13 @@ export function SelectReminderPlaceScreen() {
       // Consume before pushing so backing out of details to this picker
       // doesn't re-trigger the advance.
       consumeCreatedPlaceId();
-      router.push({ pathname: "/add-reminder/details", params: { placeId: createdPlaceId } });
+      router.push({ pathname: "/add/details", params: { placeId: createdPlaceId } });
     }, [createdPlaceId, consumeCreatedPlaceId, router]),
   );
 
   return (
-    <SafeAreaView
-      className="flex-1 bg-cream dark:bg-brand-deep"
-      edges={["top", "left", "right", "bottom"]}
-    >
-      <ScreenHeader title="Select Place" onBack={() => router.back()} />
+    <SafeAreaView className="flex-1 bg-cream dark:bg-brand-deep" edges={["top", "left", "right"]}>
+      <ScreenHeader title="Select Place" />
       <FlatList
         data={places}
         keyExtractor={(place) => place.id}
