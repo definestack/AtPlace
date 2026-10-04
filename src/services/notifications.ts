@@ -153,15 +153,19 @@ export async function presentReminderNotification(
       ...(vibration ? { vibrate: VIBRATION_PATTERN } : {}),
       data: { sound, vibration, channelId },
     },
-    trigger:
-      delaySeconds > 0
-        ? {
-            type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-            seconds: delaySeconds,
-            channelId,
-          }
-        : { channelId },
+    trigger: triggerFor(channelId, delaySeconds),
   });
+}
+
+/** Immediate delivery when `delaySeconds` is 0, otherwise a time-interval trigger. */
+function triggerFor(channelId: string, delaySeconds: number): Notifications.NotificationTriggerInput {
+  return delaySeconds > 0
+    ? {
+        type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+        seconds: delaySeconds,
+        channelId,
+      }
+    : { channelId };
 }
 
 /**
@@ -314,16 +318,33 @@ export async function cancelScheduledNotifications(ids: string[]): Promise<void>
  * `sound`/`vibration` are the already-resolved global preference booleans
  * (see `getNotificationSound`/`getNotificationVibration` in `settingsStore`)
  * so the test reflects the user's current settings.
+ *
+ * `delaySeconds` (default 0, i.e. immediate) lets the tester lock the screen
+ * or leave the app before the notification arrives, to check background
+ * delivery (issue #106).
  */
-export async function presentTestNotification(sound: boolean, vibration: boolean): Promise<void> {
+export async function presentTestNotification(
+  sound: boolean,
+  vibration: boolean,
+  delaySeconds = 0,
+): Promise<void> {
+  const channelId = channelFor(sound, vibration);
+
   await Notifications.scheduleNotificationAsync({
     content: {
       title: "Test Notification",
       body: "This is a test notification.",
       sound: sound ? "default" : false,
       ...(vibration ? { vibrate: VIBRATION_PATTERN } : {}),
-      data: { sound, vibration, channelId: channelFor(sound, vibration) },
+      data: { sound, vibration, channelId },
     },
-    trigger: { channelId: channelFor(sound, vibration) },
+    trigger: triggerFor(channelId, delaySeconds),
   });
 }
+
+/** Delay choices offered by the Settings Test Notification action (issue #106). */
+export const TEST_NOTIFICATION_DELAYS = [
+  { label: "Raise immediately", seconds: 0 },
+  { label: "Raise after 5 seconds", seconds: 5 },
+  { label: "Raise after 10 seconds", seconds: 10 },
+] as const;
