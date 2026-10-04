@@ -7,6 +7,7 @@ import {
   ensureNotificationChannels,
   presentTestNotification,
   requestNotificationPermission,
+  TEST_NOTIFICATION_DELAYS,
 } from "@/services/notifications";
 import { getNotificationSound, getNotificationVibration, useSettingsStore } from "@/store/settingsStore";
 import { useThemeStore } from "@/store/themeStore";
@@ -44,6 +45,22 @@ export function SettingsScreen() {
   const setLoggingEnabled = useSettingsStore((state) => state.setLoggingEnabled);
   const logRetentionDays = useSettingsStore((state) => state.logRetentionDays);
 
+  const sendTestNotification = async (delaySeconds: number) => {
+    try {
+      await ensureNotificationChannels();
+      const [sound, vibration] = await Promise.all([getNotificationSound(), getNotificationVibration()]);
+      await presentTestNotification(sound, vibration, delaySeconds);
+      if (delaySeconds > 0) {
+        Alert.alert(
+          "Test notification scheduled",
+          `It will arrive in ${delaySeconds} seconds. Lock the screen or leave the app to test background delivery.`,
+        );
+      }
+    } catch {
+      Alert.alert("Couldn't send test notification", "Something went wrong. Please try again.");
+    }
+  };
+
   const handleTestNotification = async () => {
     try {
       const granted = await requestNotificationPermission();
@@ -52,9 +69,15 @@ export function SettingsScreen() {
         return;
       }
 
-      await ensureNotificationChannels();
-      const [sound, vibration] = await Promise.all([getNotificationSound(), getNotificationVibration()]);
-      await presentTestNotification(sound, vibration);
+      Alert.alert(
+        "Test Notification",
+        "When should the notification be raised?",
+        TEST_NOTIFICATION_DELAYS.map(({ label, seconds }) => ({
+          text: label,
+          onPress: () => sendTestNotification(seconds),
+        })),
+        { cancelable: true },
+      );
     } catch {
       Alert.alert("Couldn't send test notification", "Something went wrong. Please try again.");
     }
