@@ -55,10 +55,20 @@ export async function getRecentLogs(limit = 200): Promise<LogEntry[]> {
   return rows.map(toLog);
 }
 
-/** Deletes every log row (Event Log screen "Clear" action). */
+/**
+ * Deletes every log row (Event Log screen "Clear" action). Runs in an exclusive
+ * transaction on its own connection so the delete is committed to disk, not
+ * left pending on the shared connection (issue #109, where Clear looked
+ * successful but the rows came back after a restart).
+ */
 export async function deleteAllLogs(): Promise<void> {
   const db = await getDatabase();
-  await db.runAsync("DELETE FROM logs");
+  if (__DEV__ && (await db.isInTransactionAsync())) {
+    console.warn("[logs] shared connection is inside an open transaction; clear may not persist");
+  }
+  await db.withExclusiveTransactionAsync(async (txn) => {
+    await txn.runAsync("DELETE FROM logs");
+  });
 }
 
 /**
