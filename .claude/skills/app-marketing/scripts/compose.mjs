@@ -72,6 +72,20 @@ function ensureDir(filePath) {
   mkdirSync(path.dirname(filePath), { recursive: true });
 }
 
+/**
+ * Forces every pixel fully opaque. Compositing a source with partially
+ * transparent (anti-aliased) edge pixels onto an opaque background should
+ * already yield full opacity, but Jimp's `composite` can leave a faint
+ * alpha fringe at those edges — this is the backstop for every "this must
+ * be a flat, opaque image" output (Play's feature graphic and normalized
+ * screenshots forbid alpha outright).
+ */
+function flattenAlpha(img) {
+  const { data } = img.bitmap;
+  for (let i = 3; i < data.length; i += 4) data[i] = 255;
+  return img;
+}
+
 async function normalize(args) {
   if (!args.in || !args.out) return { ok: false, error: "Pass --in <file> --out <file>" };
   const img = await Jimp.read(path.resolve(args.in));
@@ -79,6 +93,7 @@ async function normalize(args) {
   background.composite(img, 0, 0);
   const outPath = path.resolve(args.out);
   ensureDir(outPath);
+  flattenAlpha(background);
   await background.write(outPath);
   return { ok: true, out: outPath };
 }
@@ -127,6 +142,7 @@ async function featureGraphic(args) {
 
   const outPath = path.resolve(args.out);
   ensureDir(outPath);
+  flattenAlpha(canvas);
   await canvas.write(outPath);
   return { ok: true, out: outPath };
 }
@@ -160,6 +176,7 @@ async function frame(args) {
 
   const outPath = path.resolve(args.out);
   ensureDir(outPath);
+  flattenAlpha(canvas);
   await canvas.write(outPath);
   return { ok: true, out: outPath };
 }

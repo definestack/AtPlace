@@ -1,0 +1,32 @@
+[
+  {
+    "name": "screenshot-01-reminders",
+    "theme": "light",
+    "steps": [{ "action": "tap", "text": "Home" }, { "action": "wait", "ms": 500 }]
+  },
+  {
+    "name": "screenshot-02-places",
+    "theme": "light",
+    "steps": [{ "action": "tap", "text": "Places" }, { "action": "wait", "ms": 500 }]
+  },
+  {
+    "name": "screenshot-03-map",
+    "theme": "light",
+    "steps": [{ "action": "tap", "text": "Map" }, { "action": "wait", "ms": 5000 }]
+  },
+  {
+    "name": "screenshot-04-add-reminder",
+    "theme": "light",
+    "steps": [
+      { "action": "tap", "text": "Add" },
+      { "action": "wait", "ms": 1000 },
+      { "action": "tap", "text": "Work" },
+      { "action": "wait", "ms": 500 }
+    ]
+  },
+  {
+    "name": "screenshot-06-dark-mode",
+    "theme": "dark",
+    "steps": [{ "action": "tap", "text": "Places" }, { "action": "wait", "ms": 500 }]
+  }
+]
