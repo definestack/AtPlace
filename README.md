@@ -207,6 +207,10 @@ eas build --platform android --auto-submit
 
 Refer to [EAS Build documentation](https://docs.expo.dev/build/introduction/) for detailed build options.
 
+### Marketing Assets
+
+The `app-marketing` Claude skill (`.claude/skills/app-marketing/`) generates website copy, the Play Store listing, and the icon/screenshots/feature graphic needed to publish — see its `SKILL.md` for the workflow. Outputs land under `docs/website/` and `docs/playstore/`.
+
 ## Privacy & Security
 
 - **No cloud storage** — All data remains on your device
