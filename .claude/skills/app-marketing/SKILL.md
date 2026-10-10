@@ -126,6 +126,23 @@ node .claude/skills/app-marketing/scripts/capture.mjs \
 
 Read each resulting PNG before moving on. Re-run a specific shot (edit `shots.json`, re-run `capture.mjs`) if it doesn't look right.
 
+**Check the aspect ratio before validating.** Many devices (e.g. a Pixel 7 at 1080×2400, 20:9) are taller than Play's "long side ≤ 2× short side" screenshot rule allows — `validate.mjs` will flag this. Fix it by **padding** the short side (never cropping — that loses real UI, like the footer tab bar), filling the new canvas with the screenshot's own background color so the border is unnoticeable:
+
+```
+node -e '
+import("jimp").then(async ({Jimp}) => {
+  const path = "<screenshot file>";
+  const img = await Jimp.read(path);
+  const target = Math.ceil(img.bitmap.height / 2); // long side / 2, Play's exact limit
+  if (img.bitmap.width >= target) return;
+  const bg = 0xfaf6f0ff; // the screenshot's own background color, 0xRRGGBBAA
+  const canvas = new Jimp({ width: target, height: img.bitmap.height, color: bg });
+  canvas.composite(img, Math.round((target - img.bitmap.width) / 2), 0);
+  await canvas.write(path);
+});
+'
+```
+
 Copy the chosen subset into `docs/website/images/` with the predictable `screenshot-NN-<slug>.png` naming from Step 4.
 
 #### 6g. Feature graphic
