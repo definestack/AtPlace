@@ -17,6 +17,7 @@ module.exports = {
     userInterfaceStyle: "automatic",
     android: {
       package: "in.definestack.atplace",
+      versionCode: 1,
       adaptiveIcon: {
         backgroundColor: "#FAF6F0",
         foregroundImage: "./assets/images/android-icon-foreground.png",
@@ -65,7 +66,8 @@ module.exports = {
       [
         "expo-location",
         {
-          locationWhenInUsePermission: "AtPlace uses your location to save the place you're at.",
+          locationWhenInUsePermission:
+            "AtPlace uses your location to save the place you're at.",
           locationAlwaysAndWhenInUsePermission:
             "AtPlace uses your location in the background to remind you when you arrive at a saved place.",
           isAndroidBackgroundLocationEnabled: true,
