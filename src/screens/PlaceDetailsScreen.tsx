@@ -5,6 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { PlaceDetailsForm } from "@/components/PlaceDetailsForm";
 import { ScreenHeader } from "@/components/ScreenHeader";
+import { DEFAULT_GEOFENCE_RADIUS_M } from "@/db/placesRepository";
 import { usePlacesStore } from "@/store/placesStore";
 import { useReminderFlowStore } from "@/store/reminderFlowStore";
 import { generateId } from "@/utils/id";
@@ -30,6 +31,7 @@ export function PlaceDetailsScreen() {
 
   const [name, setName] = useState(params.name ?? "");
   const [address, setAddress] = useState(params.address ?? "");
+  const [radius, setRadius] = useState(DEFAULT_GEOFENCE_RADIUS_M);
   const [saving, setSaving] = useState(false);
 
   const addPlace = usePlacesStore((state) => state.addPlace);
@@ -74,6 +76,7 @@ export function PlaceDetailsScreen() {
         longitude,
         icon: DEFAULT_PLACE_ICON,
         color: DEFAULT_PLACE_COLOR,
+        radius,
       });
       Alert.alert("Place saved", `${name.trim()} has been added to your places.`, [
         {
@@ -107,6 +110,8 @@ export function PlaceDetailsScreen() {
         onNameChange={setName}
         address={address}
         onAddressChange={setAddress}
+        radius={radius}
+        onRadiusChange={setRadius}
         onChangeLocation={handleChangeLocation}
         onSave={handleSave}
         saving={saving}

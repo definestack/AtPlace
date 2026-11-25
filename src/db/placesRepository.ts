@@ -4,6 +4,14 @@ import type { NewPlace, Place, PlaceColor, PlaceIconName, PlaceUpdate } from "@/
 /** Default geofence trigger radius (meters) for places created without one. */
 export const DEFAULT_GEOFENCE_RADIUS_M = 150;
 
+/**
+ * Preset radius choices (meters) offered by the radius picker (issue #126).
+ * 100m is the practical floor for Android's geofencing API — anything
+ * tighter is unreliable — and 150 is kept as a preset so it stays
+ * selectable as the long-standing default.
+ */
+export const GEOFENCE_RADIUS_PRESETS_M = [100, 150, 250, 500] as const;
+
 /** Raw row shape as stored in SQLite (snake_case columns), plus a joined reminder count. */
 type PlaceRowRecord = {
   id: string;
@@ -51,19 +59,22 @@ export async function insertPlace(place: NewPlace): Promise<void> {
 }
 
 /**
- * Updates a place's editable fields — name, address and location (issue #87).
- * A plain `UPDATE … WHERE id = ?`: the id never changes and `reminders` is
- * never touched, so a place's reminders (ids, settings, count) are
- * untouched. Callers re-sync geofences afterwards if the location moved.
+ * Updates a place's editable fields — name, address, location (issue #87)
+ * and geofence trigger radius (issue #126). A plain `UPDATE … WHERE id = ?`:
+ * the id never changes and `reminders` is never touched, so a place's
+ * reminders (ids, settings, count) are untouched. Callers re-sync geofences
+ * afterwards if the location or radius changed — `syncGeofences`'s region
+ * signature includes radius, so a radius-only change still re-registers.
  */
 export async function updatePlace(id: string, changes: PlaceUpdate): Promise<void> {
   const db = await getDatabase();
   await db.runAsync(
-    `UPDATE places SET name = ?, address = ?, latitude = ?, longitude = ? WHERE id = ?`,
+    `UPDATE places SET name = ?, address = ?, latitude = ?, longitude = ?, radius = ? WHERE id = ?`,
     changes.name,
     changes.address ?? null,
     changes.latitude,
     changes.longitude,
+    changes.radius,
     id,
   );
 }

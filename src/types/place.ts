@@ -26,12 +26,14 @@ export type Place = {
 /**
  * Input for creating a new place — `reminderCount` starts at 0 server-side.
  * `radius` is optional; omitted values fall back to `DEFAULT_GEOFENCE_RADIUS_M`
- * (see `db/placesRepository.ts`) since there's no radius picker UI yet.
+ * (see `db/placesRepository.ts`) for callers that don't surface the radius
+ * picker (e.g. restoring a backup that predates it).
  */
 export type NewPlace = Omit<Place, "reminderCount" | "radius"> & { radius?: number };
 
 /**
- * Editable fields for an existing place (issue #87) — name, address and
- * location only. Radius, icon and color aren't editable yet (no picker UI).
+ * Editable fields for an existing place (issue #87) — name, address,
+ * location and geofence trigger radius (issue #126). Icon and color aren't
+ * editable yet (no picker UI).
  */
-export type PlaceUpdate = Pick<Place, "name" | "address" | "latitude" | "longitude">;
+export type PlaceUpdate = Pick<Place, "name" | "address" | "latitude" | "longitude" | "radius">;

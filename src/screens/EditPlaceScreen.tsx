@@ -5,6 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { PlaceDetailsForm } from "@/components/PlaceDetailsForm";
 import { ScreenHeader } from "@/components/ScreenHeader";
+import { DEFAULT_GEOFENCE_RADIUS_M } from "@/db/placesRepository";
 import { usePlaceLocationPickStore } from "@/store/placeLocationPickStore";
 import { usePlacesStore } from "@/store/placesStore";
 import { useRemindersStore } from "@/store/remindersStore";
@@ -12,18 +13,20 @@ import { useRemindersStore } from "@/store/remindersStore";
 /**
  * Edit Place screen (issue #87) — reached by tapping the Edit icon on a
  * Places tab row. The Place Details form (shared with Add Place via
- * `PlaceDetailsForm`), prefilled with the saved name/address, plus a
+ * `PlaceDetailsForm`), prefilled with the saved name/address/radius, plus a
  * "Change Location" that reuses the map picker in `mode=pick` instead of
- * pushing into the Add Place flow. Only name, address and location are
- * editable — no radius, icon or color picker exists yet.
+ * pushing into the Add Place flow. Name, address, location and geofence
+ * trigger radius are editable (issue #126) — icon and color aren't yet (no
+ * picker UI).
  *
  * Saving is a plain `updatePlace` (repo: a single `UPDATE … WHERE id = ?`)
  * — the place id never changes and `reminders` is never touched, so a
- * place's reminders keep their ids, settings and count. If the location
- * moved, `hydrateReminders` refreshes the joined place name on the
+ * place's reminders keep their ids, settings and count. If the location or
+ * radius changed, `hydrateReminders` refreshes the joined place name on the
  * Reminders tab and feeds the root layout's `syncGeofences` effect
  * (`src/app/_layout.tsx`), which re-registers the geofence at the new
- * coordinates.
+ * coordinates/radius (its region signature includes radius, so a
+ * radius-only change still triggers re-registration).
  */
 export function EditPlaceScreen() {
   const router = useRouter();
@@ -39,6 +42,7 @@ export function EditPlaceScreen() {
   const [address, setAddress] = useState(place?.address ?? "");
   const [latitude, setLatitude] = useState(place?.latitude);
   const [longitude, setLongitude] = useState(place?.longitude);
+  const [radius, setRadius] = useState(place?.radius ?? DEFAULT_GEOFENCE_RADIUS_M);
   const [saving, setSaving] = useState(false);
 
   // Apply a location picked via "Change Location" when this screen regains
@@ -83,6 +87,7 @@ export function EditPlaceScreen() {
         address: address.trim() || undefined,
         latitude,
         longitude,
+        radius,
       });
       // Refresh the joined place name/address reminders carry, and feed the
       // root layout's geofence-sync effect in case the location moved.
@@ -118,6 +123,8 @@ export function EditPlaceScreen() {
         onNameChange={setName}
         address={address}
         onAddressChange={setAddress}
+        radius={radius}
+        onRadiusChange={setRadius}
         onChangeLocation={handleChangeLocation}
         onSave={handleSave}
         saving={saving}
