@@ -98,7 +98,7 @@ Unlocked via a single in-app purchase:
 - **Unlimited address search**
 - **Backup & restore** (export/import to file) — gates a feature that costs $0 to run but is a recognized high-value "peace of mind" feature in this category (mirrors how Todoist and similar apps gate data export/import), and gives the paid tier something tangible beyond raw limits
 - **Full map view** showing all places at once with live geofence radius overlays (vs. single-place preview in free)
-- Custom per-place geofence radius control, once a radius-picker UI exists (`types/place.ts` already models `radius`; no picker UI today — track as a Pro feature for when it ships)
+- Custom per-place geofence radius control — the picker UI shipped in #126 (ungated, available to all users); #124 tracks gating it behind Pro
 - Early access to new features (e.g. widgets, multiple geofence shapes) as they land
 
 No ads. AtPlace's positioning is explicitly privacy-first and local-first; third-party ad SDKs require network calls and data sharing that conflict with that promise and with the "no backend" architecture. Monetize via the one-time unlock only.

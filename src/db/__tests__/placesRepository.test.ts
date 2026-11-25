@@ -13,6 +13,7 @@ describe("updatePlace", () => {
       address: "1 Office Street",
       latitude: 12.9716,
       longitude: 77.5946,
+      radius: 250,
     });
 
     expect(runAsync).toHaveBeenCalledTimes(1);
@@ -26,7 +27,7 @@ describe("updatePlace", () => {
     expect(sql).not.toMatch(/DELETE|INSERT/i);
     expect(sql).toMatch(/WHERE id = \?/);
 
-    expect(params).toEqual(["Office", "1 Office Street", 12.9716, 77.5946, "place-1"]);
+    expect(params).toEqual(["Office", "1 Office Street", 12.9716, 77.5946, 250, "place-1"]);
   });
 
   it("stores a null address when none is given", async () => {
@@ -38,9 +39,10 @@ describe("updatePlace", () => {
       address: undefined,
       latitude: 12.9716,
       longitude: 77.5946,
+      radius: 150,
     });
 
     const [, ...params] = runAsync.mock.calls[0];
-    expect(params).toEqual(["Office", null, 12.9716, 77.5946, "place-1"]);
+    expect(params).toEqual(["Office", null, 12.9716, 77.5946, 150, "place-1"]);
   });
 });

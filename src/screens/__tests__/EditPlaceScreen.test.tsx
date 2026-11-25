@@ -45,6 +45,10 @@ jest.mock("@/store/remindersStore", () => ({
     selector({ hydrate: mockHydrateReminders }),
 }));
 
+jest.mock("@/store/settingsStore", () => ({
+  useSettingsStore: (selector: (state: unknown) => unknown) => selector({ units: "km" }),
+}));
+
 describe("EditPlaceScreen", () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -96,9 +100,25 @@ describe("EditPlaceScreen", () => {
       address: "2 Office Street",
       latitude: 12.9716,
       longitude: 77.5946,
+      radius: 100,
     });
     expect(mockHydrateReminders).toHaveBeenCalled();
     expect(mockBack).toHaveBeenCalled();
+  });
+
+  it("saves a changed radius (issue #126)", async () => {
+    await render(<EditPlaceScreen />);
+
+    await fireEvent.press(screen.getByText("250 m"));
+    await fireEvent.press(screen.getByText("Save"));
+
+    expect(mockUpdatePlace).toHaveBeenCalledWith("place-1", {
+      name: "Office",
+      address: "1 Office Street",
+      latitude: 12.9716,
+      longitude: 77.5946,
+      radius: 250,
+    });
   });
 
   it("applies a location picked via Change Location, keeping the current name", async () => {

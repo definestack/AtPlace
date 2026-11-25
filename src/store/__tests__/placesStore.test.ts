@@ -35,6 +35,7 @@ describe("placesStore.updatePlace", () => {
       address: "1 Office Street",
       latitude: 12.9716,
       longitude: 77.5946,
+      radius: 100,
     });
 
     expect(updatePlaceRow).toHaveBeenCalledWith("place-1", {
@@ -42,6 +43,7 @@ describe("placesStore.updatePlace", () => {
       address: "1 Office Street",
       latitude: 12.9716,
       longitude: 77.5946,
+      radius: 100,
     });
     expect(usePlacesStore.getState().places).toEqual([updated]);
   });
@@ -57,6 +59,7 @@ describe("placesStore.updatePlace", () => {
         address: "1 Office Street",
         latitude: 12.9716,
         longitude: 77.5946,
+        radius: 100,
       }),
     ).rejects.toThrow("db error");
 

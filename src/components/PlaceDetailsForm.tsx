@@ -3,6 +3,7 @@ import { useColorScheme } from "nativewind";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 
 import { ItemIcon } from "@/components/ItemIcon";
+import { RadiusPicker } from "@/components/RadiusPicker";
 import { colors } from "@/theme/colors";
 import type { PlaceColor, PlaceIconName } from "@/types/place";
 
@@ -13,6 +14,8 @@ type PlaceDetailsFormProps = {
   onNameChange: (name: string) => void;
   address: string;
   onAddressChange: (address: string) => void;
+  radius: number;
+  onRadiusChange: (radius: number) => void;
   onChangeLocation: () => void;
   onSave: () => void;
   saving?: boolean;
@@ -20,10 +23,11 @@ type PlaceDetailsFormProps = {
 };
 
 /**
- * Name/address inputs + "Change Location" row + Save button shared by
- * `PlaceDetailsScreen` (Add Place) and `EditPlaceScreen` (issue #87) — the
- * two differ only in what happens around this form (create vs. update,
- * where "Change Location" pushes to, what Save does on success).
+ * Name/address inputs + radius picker (issue #126) + "Change Location" row +
+ * Save button shared by `PlaceDetailsScreen` (Add Place) and
+ * `EditPlaceScreen` (issue #87) — the two differ only in what happens around
+ * this form (create vs. update, where "Change Location" pushes to, what
+ * Save does on success).
  */
 export function PlaceDetailsForm({
   icon,
@@ -32,6 +36,8 @@ export function PlaceDetailsForm({
   onNameChange,
   address,
   onAddressChange,
+  radius,
+  onRadiusChange,
   onChangeLocation,
   onSave,
   saving = false,
@@ -66,6 +72,13 @@ export function PlaceDetailsForm({
         style={{ color: textColor }}
         multiline
       />
+
+      <Text className="mb-2 text-sm font-medium text-muted dark:text-mutedDark">
+        Trigger radius
+      </Text>
+      <View className="mb-5">
+        <RadiusPicker value={radius} onChange={onRadiusChange} />
+      </View>
 
       <Pressable
         onPress={onChangeLocation}
